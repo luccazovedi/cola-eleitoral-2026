@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Pencil, ReceiptText, Search } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Pencil, ReceiptText, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
@@ -11,7 +11,16 @@ import type { Candidate, CandidateOffice, CandidateSearchResult } from "@/types/
 
 type SelectionState = Record<ElectionStepId, Candidate | null>;
 
+type PersistedElectionState = {
+  version: 1;
+  uf: BrazilianStateCode | "";
+  started: boolean;
+  currentIndex: number;
+  selections: SelectionState;
+};
+
 const initialSelections = Object.fromEntries(electionFlow.map((step) => [step.id, null])) as SelectionState;
+const STORAGE_KEY = "cola-eleitoral-2026:progress";
 
 const officeByStep: Record<ElectionStepId, CandidateOffice> = {
   "deputado-federal": "deputado-federal",
@@ -43,6 +52,30 @@ function formatUpdatedAt(value: string | null): string {
   }).format(new Date(value));
 }
 
+function readPersistedState(): PersistedElectionState | null {
+  try {
+    const value = window.localStorage.getItem(STORAGE_KEY);
+    if (!value) {
+      return null;
+    }
+
+    const parsed = JSON.parse(value) as Partial<PersistedElectionState>;
+    if (parsed.version !== 1 || typeof parsed.uf !== "string" || typeof parsed.selections !== "object") {
+      return null;
+    }
+
+    return {
+      version: 1,
+      uf: parsed.uf as BrazilianStateCode | "",
+      started: Boolean(parsed.started),
+      currentIndex: Math.min(Math.max(Number(parsed.currentIndex) || 0, 0), electionFlow.length - 1),
+      selections: { ...initialSelections, ...parsed.selections },
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function ElectionFlow() {
   const [uf, setUf] = useState<BrazilianStateCode | "">("");
   const [started, setStarted] = useState(false);
@@ -56,6 +89,7 @@ export function ElectionFlow() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [finalized, setFinalized] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
   const currentStep = electionFlow[currentIndex];
   const currentOffice = officeByStep[currentStep.id];
   const selectedCandidate = selections[currentStep.id];
@@ -68,6 +102,34 @@ export function ElectionFlow() {
   const canGoBack = currentIndex > 0;
   const canGoForward = currentIndex < electionFlow.length - 1;
   const isLastStep = currentIndex === electionFlow.length - 1;
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const persisted = readPersistedState();
+      if (persisted) {
+        setUf(persisted.uf);
+        setStarted(persisted.started && Boolean(persisted.uf));
+        setCurrentIndex(persisted.currentIndex);
+        setSelections(persisted.selections);
+      }
+      setStorageReady(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!storageReady) {
+      return;
+    }
+
+    const persisted: PersistedElectionState = {
+      version: 1,
+      uf,
+      started,
+      currentIndex,
+      selections,
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+  }, [currentIndex, selections, started, storageReady, uf]);
 
   useEffect(() => {
     if (!started || !uf) {
@@ -181,6 +243,21 @@ export function ElectionFlow() {
     setFinalized(false);
   }
 
+  function clearSavedProgress() {
+    window.localStorage.removeItem(STORAGE_KEY);
+    setUf("");
+    setStarted(false);
+    setCurrentIndex(0);
+    setSelections(initialSelections);
+    setCandidates([]);
+    setPhotoUrls({});
+    setSourceUpdatedAt(null);
+    setLoadError(null);
+    setQuery("");
+    setReviewing(false);
+    setFinalized(false);
+  }
+
   function editSelection(stepId: ElectionStepId) {
     const stepIndex = electionFlow.findIndex((step) => step.id === stepId);
     setCurrentIndex(Math.max(stepIndex, 0));
@@ -254,7 +331,7 @@ export function ElectionFlow() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
           <label className="grid gap-2 text-sm font-semibold text-slate-900" htmlFor="uf">
             UF do eleitor
             <select
@@ -280,7 +357,22 @@ export function ElectionFlow() {
           >
             Iniciar fluxo
           </button>
+          <button
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:border-rose-500 hover:text-rose-800 disabled:cursor-not-allowed disabled:text-slate-400"
+            disabled={!uf && selectedCount === 0}
+            onClick={clearSavedProgress}
+            type="button"
+          >
+            <Trash2 aria-hidden="true" className="size-4" />
+            Limpar escolhas
+          </button>
         </div>
+
+        {storageReady && (uf || selectedCount > 0) ? (
+          <p className="mt-3 text-xs font-medium text-slate-600" role="status">
+            Progresso salvo somente neste navegador.
+          </p>
+        ) : null}
 
         {!started ? (
           <div className="mt-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="status">
