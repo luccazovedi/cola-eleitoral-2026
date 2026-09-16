@@ -1,7 +1,7 @@
 import { unzipSync } from "fflate";
 import { parseDelimited } from "@/lib/csv";
 import { candidateMatchesFilters, normalizeTseCandidate } from "@/lib/tse/normalize";
-import type { CandidateFilters, CandidateSearchResult, CandidateSource } from "@/types/candidate";
+import type { Candidate, CandidateFilters, CandidateSearchResult, CandidateSource } from "@/types/candidate";
 
 const TSE_CANDIDATES_DATASET_ID = "candidatos-2026";
 const TSE_CKAN_PACKAGE_URL = `https://dadosabertos.tse.jus.br/api/3/action/package_show?id=${TSE_CANDIDATES_DATASET_ID}`;
@@ -46,6 +46,10 @@ function isCandidateResource(resource: CkanResource): boolean {
 
 function pickUpdatedAt(resource: CkanResource, dataset: CkanPackage): string | null {
   return resource.last_modified ?? resource.metadata_modified ?? dataset.metadata_modified ?? resource.created ?? null;
+}
+
+function isCandidate(candidate: Candidate | null): candidate is Candidate {
+  return candidate !== null;
 }
 
 async function fetchDataset(): Promise<{ dataset: CkanPackage; resource: CkanResource; source: CandidateSource }> {
@@ -116,7 +120,7 @@ export async function searchOfficialCandidates(filters: CandidateFilters): Promi
   const limit = Math.min(Math.max(filters.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
   const candidates = parseDelimited(csv)
     .map((record) => normalizeTseCandidate(record, source.updatedAt))
-    .filter((candidate) => candidate !== null)
+    .filter(isCandidate)
     .filter((candidate) => candidateMatchesFilters(candidate, filters));
 
   return {
