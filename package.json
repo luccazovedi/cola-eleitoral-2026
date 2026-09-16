@@ -12,6 +12,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "latest",
     "clsx": "latest",
+    "fflate": "latest",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
