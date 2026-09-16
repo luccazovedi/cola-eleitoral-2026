@@ -30,7 +30,7 @@ O Cola Eleitoral 2026 deve permitir que a pessoa eleitora selecione sua UF, pesq
 
 ## Fontes oficiais do TSE
 
-A camada de dados usa o catálogo CKAN oficial do TSE para descobrir o recurso vigente de candidatos de 2026:
+A camada de dados usa o arquivo oficial de candidatos de 2026 publicado pelo TSE:
 
 - Portal de Dados Abertos do TSE: https://dadosabertos.tse.jus.br/
 - Candidatos - 2026: https://dadosabertos.tse.jus.br/dataset/candidatos-2026
@@ -41,9 +41,11 @@ Os dados normalizados para o frontend preservam, quando disponíveis, cargo, UF,
 
 O arquivo nacional é segmentado por UF durante a leitura, evitando misturar candidaturas de estados diferentes. A data apresentada vem dos campos de geração do próprio CSV oficial. As fotos são associadas pelo identificador `SQ_CANDIDATO` aos arquivos oficiais `F{UF}{SQ_CANDIDATO}_div.jpg` distribuídos pelo TSE.
 
-## API de candidatos
+## Espelho versionado e API de candidatos
 
-`GET /api/candidates` consulta a fonte oficial do TSE, baixa o recurso CSV/ZIP de candidatos, normaliza os campos e retorna um JSON próprio para uso no frontend.
+O CDN do TSE bloqueia requisições originadas do runtime da Vercel e apresenta cabeçalhos CORS incompatíveis com alguns navegadores. Para manter a consulta disponível, o repositório contém um espelho compacto, gerado diretamente do ZIP oficial por `npm run sync:candidates`.
+
+Os arquivos em `public/data/candidates/{UF}.json` são versionados, separados por UF e servidos no mesmo domínio da aplicação. A interface e `GET /api/candidates` consultam esses arquivos sem enviar escolhas eleitorais ou termos de busca a serviços externos.
 
 Parâmetros aceitos:
 
@@ -90,18 +92,17 @@ Scripts disponíveis:
 - `npm run start`: inicia a build de produção.
 - `npm run lint`: executa a verificação de lint.
 - `npm run typecheck`: executa a verificação de TypeScript.
+- `npm run sync:candidates`: atualiza o espelho local a partir do ZIP oficial do TSE.
 
 ## Aplicação ao vivo
 
-A aplicação é publicada na Vercel, onde a rota server-side `/api/candidates` pode consultar e normalizar os dados oficiais do TSE.
+A aplicação é publicada na Vercel e serve o espelho versionado dos dados oficiais no mesmo domínio.
 
 **Acesso:** https://cola-eleitoral-2026-azure.vercel.app/
 
 Cada atualização da branch `main` pode gerar uma nova implantação pela integração entre GitHub e Vercel. O GitHub permanece como fonte do código e da documentação; a hospedagem da aplicação e o runtime da API ficam na Vercel.
 
-Quando o TSE bloqueia uma consulta feita pelo runtime da Vercel, a interface usa como contingência o mesmo ZIP oficial diretamente do CDN do TSE, processado no navegador. As escolhas continuam locais e não são enviadas ao servidor.
-
-O navegador mantém os arquivos oficiais em cache durante a sessão para evitar downloads repetidos ao navegar entre cargos ou refazer pesquisas na mesma UF.
+O navegador mantém o arquivo compacto da UF em cache durante a sessão para evitar downloads e processamento repetidos ao navegar entre cargos ou refazer pesquisas.
 
 ## Segurança e neutralidade
 

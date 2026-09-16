@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
 import { electionFlow, type ElectionStepId } from "@/lib/project";
-import { searchCandidatesFromTseCdn } from "@/lib/tse/client";
+import { searchCandidatesFromLocalMirror } from "@/lib/tse/client";
 import { loadCandidatePhotoUrls } from "@/lib/tse/photos";
 import type { Candidate, CandidateOffice, CandidateSearchResult } from "@/types/candidate";
 
@@ -152,18 +152,12 @@ export function ElectionFlow() {
       setLoadError(null);
 
       try {
-        const response = await fetch(`/api/candidates?${params.toString()}`, {
-          signal: controller.signal,
+        const result: CandidateSearchResult = await searchCandidatesFromLocalMirror({
+          office: currentOffice,
+          uf: currentOffice === "presidente" ? "BR" : uf,
+          q: params.get("q") || undefined,
+          limit: 24,
         });
-
-        const result = response.ok
-          ? ((await response.json()) as CandidateSearchResult)
-          : await searchCandidatesFromTseCdn({
-              office: currentOffice,
-              uf: currentOffice === "presidente" ? "BR" : uf,
-              q: query.trim() || undefined,
-              limit: 24,
-            });
 
         if (controller.signal.aborted) {
           return;

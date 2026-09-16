@@ -1,17 +1,14 @@
-import { parseDelimited } from "@/lib/csv";
-import { candidateMatchesFilters, normalizeTseCandidate } from "@/lib/tse/normalize";
-import {
-  decodeCandidateCsvFromZip,
-  TSE_CANDIDATES_DATASET_URL,
-  TSE_CANDIDATES_RESOURCE_URL,
-} from "@/lib/tse/resources";
+import { candidateMatchesFilters } from "@/lib/tse/normalize";
 import type { Candidate, CandidateFilters, CandidateSearchResult } from "@/types/candidate";
 
+const TSE_CANDIDATES_DATASET_URL = "https://dadosabertos.tse.jus.br/dataset/candidatos-2026";
+const TSE_CANDIDATES_RESOURCE_URL =
+  "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2026.zip";
 const candidateCache = new Map<string, Promise<Candidate[]>>();
 
-function isCandidate(candidate: Candidate | null): candidate is Candidate {
-  return candidate !== null;
-}
+type CandidateTuple = [string, Candidate["office"], string, string, string, string, string];
+type CandidateMirror = { updatedAt: string | null; candidates: CandidateTuple[] };
+const updatedAtCache = new Map<string, string | null>();
 
 async function loadCandidates(uf: string): Promise<Candidate[]> {
   const normalizedUf = uf.toUpperCase();
@@ -21,24 +18,34 @@ async function loadCandidates(uf: string): Promise<Candidate[]> {
     return cached;
   }
 
-  const request = fetch(TSE_CANDIDATES_RESOURCE_URL)
+  const request = fetch(`/data/candidates/${normalizedUf}.json`)
     .then((response) => {
       if (!response.ok) {
-        throw new Error("A fonte oficial do TSE não respondeu. Tente novamente em alguns instantes.");
+        throw new Error("O espelho local de candidatos não está disponível. Tente novamente em alguns instantes.");
       }
-      return response.arrayBuffer();
+      return response.json() as Promise<CandidateMirror>;
     })
-    .then((buffer) =>
-      parseDelimited(decodeCandidateCsvFromZip(buffer, normalizedUf))
-        .map((record) => normalizeTseCandidate(record, null))
-        .filter(isCandidate),
-    );
+    .then((mirror) => {
+      updatedAtCache.set(normalizedUf, mirror.updatedAt);
+      return mirror.candidates.map(([id, office, number, ballotName, fullName, party, status]) => ({
+        id,
+        uf: normalizedUf,
+        office,
+        officeLabel: office,
+        number,
+        ballotName,
+        fullName,
+        party,
+        status,
+        sourceUpdatedAt: mirror.updatedAt,
+      }));
+    });
 
   candidateCache.set(normalizedUf, request);
   return request;
 }
 
-export async function searchCandidatesFromTseCdn(filters: CandidateFilters): Promise<CandidateSearchResult> {
+export async function searchCandidatesFromLocalMirror(filters: CandidateFilters): Promise<CandidateSearchResult> {
   const normalizedUf = filters.uf?.toUpperCase() ?? "BR";
   const allCandidates = await loadCandidates(normalizedUf);
   const limit = Math.min(Math.max(filters.limit ?? 100, 1), 200);
@@ -50,7 +57,7 @@ export async function searchCandidatesFromTseCdn(filters: CandidateFilters): Pro
       datasetUrl: TSE_CANDIDATES_DATASET_URL,
       resourceName: "Candidatos",
       resourceUrl: TSE_CANDIDATES_RESOURCE_URL,
-      updatedAt: allCandidates[0]?.sourceUpdatedAt ?? null,
+      updatedAt: updatedAtCache.get(normalizedUf) ?? allCandidates[0]?.sourceUpdatedAt ?? null,
     },
     filters: { ...filters, uf: filters.uf?.toUpperCase(), limit },
     total: candidates.length,
