@@ -39,6 +39,8 @@ A camada de dados usa o catálogo CKAN oficial do TSE para descobrir o recurso v
 
 Os dados normalizados para o frontend preservam, quando disponíveis, cargo, UF, número, nome de urna, nome completo, partido, situação da candidatura e data da última atualização. Qualquer ausência, defasagem ou indisponibilidade de dados deve ser comunicada de forma neutra.
 
+O arquivo nacional é segmentado por UF durante a leitura, evitando misturar candidaturas de estados diferentes. A data apresentada vem dos campos de geração do próprio CSV oficial. As fotos são associadas pelo identificador `SQ_CANDIDATO` aos arquivos oficiais `F{UF}{SQ_CANDIDATO}_div.jpg` distribuídos pelo TSE.
+
 ## API de candidatos
 
 `GET /api/candidates` consulta a fonte oficial do TSE, baixa o recurso CSV/ZIP de candidatos, normaliza os campos e retorna um JSON próprio para uso no frontend.
@@ -98,6 +100,8 @@ A aplicação é publicada na Vercel, onde a rota server-side `/api/candidates` 
 Cada atualização da branch `main` pode gerar uma nova implantação pela integração entre GitHub e Vercel. O GitHub permanece como fonte do código e da documentação; a hospedagem da aplicação e o runtime da API ficam na Vercel.
 
 Quando o TSE bloqueia uma consulta feita pelo runtime da Vercel, a interface usa como contingência o mesmo ZIP oficial diretamente do CDN do TSE, processado no navegador. As escolhas continuam locais e não são enviadas ao servidor.
+
+O navegador mantém os arquivos oficiais em cache durante a sessão para evitar downloads repetidos ao navegar entre cargos ou refazer pesquisas na mesma UF.
 
 ## Segurança e neutralidade
 

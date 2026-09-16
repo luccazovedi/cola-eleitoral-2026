@@ -44,6 +44,17 @@ function officeLabel(office: CandidateOffice): string {
   }
 }
 
+function generatedAt(record: CsvRecord): string | null {
+  const [day, month, year] = clean(record.DT_GERACAO).split("/");
+  const time = clean(record.HH_GERACAO);
+
+  if (!day || !month || !year || !/^\d{2}:\d{2}:\d{2}$/.test(time)) {
+    return null;
+  }
+
+  return `${year}-${month}-${day}T${time}-03:00`;
+}
+
 export function normalizeTseCandidate(record: CsvRecord, sourceUpdatedAt: string | null): Candidate | null {
   const office = mapOffice(clean(record.DS_CARGO));
 
@@ -71,7 +82,7 @@ export function normalizeTseCandidate(record: CsvRecord, sourceUpdatedAt: string
     fullName,
     party: clean(record.SG_PARTIDO),
     status: clean(record.DS_SITUACAO_CANDIDATURA),
-    sourceUpdatedAt,
+    sourceUpdatedAt: sourceUpdatedAt ?? generatedAt(record),
   };
 }
 

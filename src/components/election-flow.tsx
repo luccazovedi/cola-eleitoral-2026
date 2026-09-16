@@ -1,10 +1,12 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Loader2, MapPin, ReceiptText, Search } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
 import { electionFlow, type ElectionStepId } from "@/lib/project";
 import { searchCandidatesFromTseCdn } from "@/lib/tse/client";
+import { loadCandidatePhotoUrls } from "@/lib/tse/photos";
 import type { Candidate, CandidateOffice, CandidateSearchResult } from "@/types/candidate";
 
 type SelectionState = Record<ElectionStepId, Candidate | null>;
@@ -48,6 +50,7 @@ export function ElectionFlow() {
   const [selections, setSelections] = useState<SelectionState>(initialSelections);
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [sourceUpdatedAt, setSourceUpdatedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -98,11 +101,18 @@ export function ElectionFlow() {
               q: query.trim() || undefined,
               limit: 24,
             });
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setPhotoUrls({});
         setCandidates(result.candidates);
         setSourceUpdatedAt(result.source.updatedAt);
       } catch (error) {
         if (!controller.signal.aborted) {
           setCandidates([]);
+          setPhotoUrls({});
           setSourceUpdatedAt(null);
           setLoadError(error instanceof Error ? error.message : "Nao foi possivel buscar candidatos.");
         }
@@ -118,6 +128,28 @@ export function ElectionFlow() {
       window.clearTimeout(timeout);
     };
   }, [currentOffice, query, started, uf]);
+
+  useEffect(() => {
+    if (!started || candidates.length === 0) {
+      return;
+    }
+
+    let active = true;
+    const photoUf = currentOffice === "presidente" ? "BR" : uf;
+
+    void loadCandidatePhotoUrls(
+      photoUf,
+      candidates.map((candidate) => candidate.id),
+    ).then((urls) => {
+      if (active) {
+        setPhotoUrls(urls);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [candidates, currentOffice, started, uf]);
 
   function selectCandidate(candidate: Candidate) {
     if (currentStep.id === "senador-2" && selections["senador-1"]?.id === candidate.id) {
@@ -295,8 +327,19 @@ export function ElectionFlow() {
                     onClick={() => selectCandidate(candidate)}
                     type="button"
                   >
-                    <span className="flex size-14 items-center justify-center rounded-md bg-slate-200 text-sm font-black text-slate-700" aria-label="Foto nao disponivel">
-                      {candidateInitials(candidate)}
+                    <span className="relative flex size-14 items-center justify-center overflow-hidden rounded-md bg-slate-200 text-sm font-black text-slate-700">
+                      {photoUrls[candidate.id] ? (
+                        <Image
+                          alt={`Foto de ${candidate.ballotName}`}
+                          className="object-cover"
+                          fill
+                          sizes="56px"
+                          src={photoUrls[candidate.id]}
+                          unoptimized
+                        />
+                      ) : (
+                        <span aria-label="Foto ainda não disponível">{candidateInitials(candidate)}</span>
+                      )}
                     </span>
                     <span className="min-w-0">
                       <strong className="block truncate text-base text-slate-950">{candidate.ballotName}</strong>

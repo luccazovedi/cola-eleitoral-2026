@@ -1,13 +1,14 @@
-import { unzipSync } from "fflate";
 import { parseDelimited } from "@/lib/csv";
 import { candidateMatchesFilters, normalizeTseCandidate } from "@/lib/tse/normalize";
+import {
+  decodeCandidateCsvFromZip,
+  TSE_CANDIDATES_DATASET_URL,
+  TSE_CANDIDATES_RESOURCE_URL,
+} from "@/lib/tse/resources";
 import type { Candidate, CandidateFilters, CandidateSearchResult, CandidateSource } from "@/types/candidate";
 
 const TSE_CANDIDATES_DATASET_ID = "candidatos-2026";
 const TSE_CKAN_PACKAGE_URL = `https://dadosabertos.tse.jus.br/api/3/action/package_show?id=${TSE_CANDIDATES_DATASET_ID}`;
-const TSE_CANDIDATES_DATASET_URL = "https://dadosabertos.tse.jus.br/dataset/candidatos-2026";
-export const TSE_CANDIDATES_RESOURCE_URL =
-  "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_2026.zip";
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 200;
 
@@ -111,23 +112,6 @@ async function fetchDataset(): Promise<{ dataset: CkanPackage; resource: CkanRes
       updatedAt: pickUpdatedAt(resource, dataset),
     },
   };
-}
-
-export function decodeCandidateCsvFromZip(buffer: ArrayBuffer, uf?: string): string {
-  const files = unzipSync(new Uint8Array(buffer));
-  const entries = Object.entries(files);
-  const normalizedUf = uf?.toUpperCase();
-  const expectedFile = normalizedUf ? new RegExp(`consulta_cand_2026_${normalizedUf}\\.csv$`, "i") : null;
-  const candidateEntry =
-    (expectedFile ? entries.find(([name]) => expectedFile.test(name)) : undefined) ??
-    entries.find(([name]) => /consulta_cand.*\.csv$/i.test(name)) ??
-    entries.find(([name]) => name.toLocaleLowerCase("pt-BR").endsWith(".csv"));
-
-  if (!candidateEntry) {
-    throw new Error("O arquivo oficial do TSE nao contem um CSV de candidatos.");
-  }
-
-  return new TextDecoder("iso-8859-1").decode(candidateEntry[1]);
 }
 
 async function fetchCandidateCsv(resourceUrl: string, uf?: string): Promise<string> {

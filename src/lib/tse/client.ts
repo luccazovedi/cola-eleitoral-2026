@@ -1,35 +1,56 @@
 import { parseDelimited } from "@/lib/csv";
-import { decodeCandidateCsvFromZip, TSE_CANDIDATES_RESOURCE_URL } from "@/lib/tse/candidates";
 import { candidateMatchesFilters, normalizeTseCandidate } from "@/lib/tse/normalize";
+import {
+  decodeCandidateCsvFromZip,
+  TSE_CANDIDATES_DATASET_URL,
+  TSE_CANDIDATES_RESOURCE_URL,
+} from "@/lib/tse/resources";
 import type { Candidate, CandidateFilters, CandidateSearchResult } from "@/types/candidate";
 
-const DATASET_URL = "https://dadosabertos.tse.jus.br/dataset/candidatos-2026";
+const candidateCache = new Map<string, Promise<Candidate[]>>();
 
 function isCandidate(candidate: Candidate | null): candidate is Candidate {
   return candidate !== null;
 }
 
-export async function searchCandidatesFromTseCdn(filters: CandidateFilters): Promise<CandidateSearchResult> {
-  const response = await fetch(TSE_CANDIDATES_RESOURCE_URL);
+async function loadCandidates(uf: string): Promise<Candidate[]> {
+  const normalizedUf = uf.toUpperCase();
+  const cached = candidateCache.get(normalizedUf);
 
-  if (!response.ok) {
-    throw new Error("A fonte oficial do TSE não respondeu. Tente novamente em alguns instantes.");
+  if (cached) {
+    return cached;
   }
 
-  const csv = decodeCandidateCsvFromZip(await response.arrayBuffer(), filters.uf);
+  const request = fetch(TSE_CANDIDATES_RESOURCE_URL)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("A fonte oficial do TSE não respondeu. Tente novamente em alguns instantes.");
+      }
+      return response.arrayBuffer();
+    })
+    .then((buffer) =>
+      parseDelimited(decodeCandidateCsvFromZip(buffer, normalizedUf))
+        .map((record) => normalizeTseCandidate(record, null))
+        .filter(isCandidate),
+    );
+
+  candidateCache.set(normalizedUf, request);
+  return request;
+}
+
+export async function searchCandidatesFromTseCdn(filters: CandidateFilters): Promise<CandidateSearchResult> {
+  const normalizedUf = filters.uf?.toUpperCase() ?? "BR";
+  const allCandidates = await loadCandidates(normalizedUf);
   const limit = Math.min(Math.max(filters.limit ?? 100, 1), 200);
-  const candidates = parseDelimited(csv)
-    .map((record) => normalizeTseCandidate(record, null))
-    .filter(isCandidate)
-    .filter((candidate) => candidateMatchesFilters(candidate, filters));
+  const candidates = allCandidates.filter((candidate) => candidateMatchesFilters(candidate, filters));
 
   return {
     source: {
       datasetName: "Candidatos - 2026",
-      datasetUrl: DATASET_URL,
+      datasetUrl: TSE_CANDIDATES_DATASET_URL,
       resourceName: "Candidatos",
       resourceUrl: TSE_CANDIDATES_RESOURCE_URL,
-      updatedAt: null,
+      updatedAt: allCandidates[0]?.sourceUpdatedAt ?? null,
     },
     filters: { ...filters, uf: filters.uf?.toUpperCase(), limit },
     total: candidates.length,
