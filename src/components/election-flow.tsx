@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Loader2, MapPin, ReceiptText, Search } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Pencil, ReceiptText, Search } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
@@ -54,6 +54,7 @@ export function ElectionFlow() {
   const [sourceUpdatedAt, setSourceUpdatedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState(false);
   const [finalized, setFinalized] = useState(false);
   const currentStep = electionFlow[currentIndex];
   const currentOffice = officeByStep[currentStep.id];
@@ -163,6 +164,7 @@ export function ElectionFlow() {
     }
 
     setLoadError(null);
+    setFinalized(false);
     setSelections((current) => ({
       ...current,
       [currentStep.id]: candidate,
@@ -175,7 +177,32 @@ export function ElectionFlow() {
     setCurrentIndex(0);
     setSelections(initialSelections);
     setQuery("");
+    setReviewing(false);
     setFinalized(false);
+  }
+
+  function editSelection(stepId: ElectionStepId) {
+    const stepIndex = electionFlow.findIndex((step) => step.id === stepId);
+    setCurrentIndex(Math.max(stepIndex, 0));
+    setQuery("");
+    setReviewing(false);
+    setFinalized(false);
+  }
+
+  function finalizeChoices() {
+    const missingCount = electionFlow.filter((step) => !selections[step.id]).length;
+
+    if (
+      missingCount > 0 &&
+      !window.confirm(
+        `Ainda existem ${missingCount} cargo(s) sem candidato selecionado. Deseja finalizar a cola incompleta?`,
+      )
+    ) {
+      return;
+    }
+
+    setReviewing(false);
+    setFinalized(true);
   }
 
   return (
@@ -259,6 +286,68 @@ export function ElectionFlow() {
           <div className="mt-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="status">
             Selecione a UF para liberar as etapas de cargos. Nenhuma escolha politica sera enviada para analytics.
           </div>
+        ) : reviewing ? (
+          <section className="mt-6 grid gap-5" aria-labelledby="review-title">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wide text-teal-800">Revisão</p>
+              <h3 id="review-title" className="mt-1 text-2xl font-bold text-slate-950">
+                Confira suas escolhas
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-700">
+                Revise número, nome e partido. Você pode alterar qualquer cargo antes de gerar a cola.
+              </p>
+            </div>
+
+            <ol className="grid gap-3">
+              {electionFlow.map((step) => {
+                const candidate = selections[step.id];
+                return (
+                  <li className="rounded-lg border border-slate-200 bg-slate-50 p-4" key={step.id}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-950">{step.label}</p>
+                        {candidate ? (
+                          <p className="mt-1 text-sm leading-6 text-slate-700">
+                            <strong className="font-mono text-base text-slate-950">{candidate.number}</strong>
+                            {` — ${candidate.ballotName} · ${candidate.party || "Partido não informado"}`}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-sm font-semibold text-amber-800">Escolha pendente</p>
+                        )}
+                      </div>
+                      <button
+                        className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:border-teal-700"
+                        onClick={() => editSelection(step.id)}
+                        type="button"
+                      >
+                        <Pencil aria-hidden="true" className="size-4" />
+                        Alterar
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:border-slate-500"
+                onClick={() => setReviewing(false)}
+                type="button"
+              >
+                <ChevronLeft aria-hidden="true" className="size-4" />
+                Voltar às escolhas
+              </button>
+              <button
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-800"
+                onClick={finalizeChoices}
+                type="button"
+              >
+                <CheckCircle2 aria-hidden="true" className="size-4" />
+                Finalizar cola
+              </button>
+            </div>
+          </section>
         ) : (
           <div className="mt-6 grid gap-5">
             <div aria-label={`Progresso: ${progress}%`} className="grid gap-2" role="group">
@@ -319,10 +408,15 @@ export function ElectionFlow() {
 
               {!isLoading && candidates.map((candidate) => {
                 const isSelected = selectedCandidate?.id === candidate.id;
+                const isSenateConflict =
+                  (currentStep.id === "senador-2" && selections["senador-1"]?.id === candidate.id) ||
+                  (currentStep.id === "senador-1" && selections["senador-2"]?.id === candidate.id);
                 return (
                   <button
+                    aria-disabled={isSenateConflict}
                     aria-pressed={isSelected}
-                    className="grid min-h-24 grid-cols-[56px_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-teal-700 aria-pressed:border-teal-700 aria-pressed:bg-teal-50"
+                    className="grid min-h-24 grid-cols-[56px_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition enabled:hover:border-teal-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-65 aria-pressed:border-teal-700 aria-pressed:bg-teal-50"
+                    disabled={isSenateConflict}
                     key={candidate.id}
                     onClick={() => selectCandidate(candidate)}
                     type="button"
@@ -345,6 +439,11 @@ export function ElectionFlow() {
                       <strong className="block truncate text-base text-slate-950">{candidate.ballotName}</strong>
                       <span className="block text-sm text-slate-600">{candidate.fullName}</span>
                       <span className="block text-sm font-semibold text-slate-700">{candidate.party || "Partido nao informado"}</span>
+                      {isSenateConflict ? (
+                        <span className="mt-1 block text-xs font-bold text-amber-800">
+                          Já escolhido para a outra vaga ao Senado
+                        </span>
+                      ) : null}
                     </span>
                     <strong className="font-mono text-2xl text-slate-950">{candidate.number}</strong>
                   </button>
@@ -368,11 +467,11 @@ export function ElectionFlow() {
               {isLastStep ? (
                 <button
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800"
-                  onClick={() => setFinalized(true)}
+                  onClick={() => setReviewing(true)}
                   type="button"
                 >
                   <ReceiptText aria-hidden="true" className="size-4" />
-                  Finalizar
+                  Revisar escolhas
                 </button>
               ) : (
                 <button
