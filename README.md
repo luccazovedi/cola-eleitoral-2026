@@ -30,13 +30,33 @@ O Cola Eleitoral 2026 deve permitir que a pessoa eleitora selecione sua UF, pesq
 
 ## Fontes oficiais do TSE
 
-A camada de dados deve usar bases públicas e oficiais do TSE, preferencialmente:
+A camada de dados usa o catálogo CKAN oficial do TSE para descobrir o recurso vigente de candidatos de 2026:
 
 - Portal de Dados Abertos do TSE: https://dadosabertos.tse.jus.br/
 - Candidatos - 2026: https://dadosabertos.tse.jus.br/dataset/candidatos-2026
+- API CKAN do pacote: https://dadosabertos.tse.jus.br/api/3/action/package_show?id=candidatos-2026
 - Divulgação de Candidaturas e Contas Eleitorais: https://divulgacandcontas.tse.jus.br/divulga/#/
 
-Os dados normalizados para o frontend devem preservar, quando disponíveis, cargo, UF, número, nome de urna, nome completo, partido, situação da candidatura, foto e data da última atualização. Qualquer ausência, defasagem ou indisponibilidade de dados deve ser comunicada de forma neutra.
+Os dados normalizados para o frontend preservam, quando disponíveis, cargo, UF, número, nome de urna, nome completo, partido, situação da candidatura e data da última atualização. Qualquer ausência, defasagem ou indisponibilidade de dados deve ser comunicada de forma neutra.
+
+## API de candidatos
+
+`GET /api/candidates` consulta a fonte oficial do TSE, baixa o recurso CSV/ZIP de candidatos, normaliza os campos e retorna um JSON próprio para uso no frontend.
+
+Parâmetros aceitos:
+
+- `uf`: sigla da UF, como `SP`, `RJ` ou `BR`.
+- `office`: `deputado-federal`, `deputado-estadual-distrital`, `senador`, `governador` ou `presidente`.
+- `q`: busca por número, nome de urna, nome completo ou partido.
+- `limit`: limite de resultados, entre 1 e 200.
+
+Exemplo:
+
+```http
+GET /api/candidates?uf=SP&office=senador&q=123&limit=20
+```
+
+A resposta inclui `source.updatedAt`, permitindo exibir a data de última atualização disponível para o usuário.
 
 ## Privacidade e analytics
 
