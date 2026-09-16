@@ -54,6 +54,21 @@ A persistência do MVP deve ser local, usando armazenamento do navegador, com op
 - localStorage para persistência local
 - Deploy em Vercel
 
+## Desenvolvimento local
+
+```bash
+npm install
+npm run dev
+```
+
+Scripts disponíveis:
+
+- `npm run dev`: inicia o servidor de desenvolvimento.
+- `npm run build`: gera a build de produção.
+- `npm run start`: inicia a build de produção.
+- `npm run lint`: executa a verificação de lint.
+- `npm run typecheck`: executa a verificação de TypeScript.
+
 ## Segurança e neutralidade
 
 - Não armazenar escolhas políticas no servidor.
@@ -63,7 +78,7 @@ A persistência do MVP deve ser local, usando armazenamento do navegador, com op
 - Sanitizar entradas usadas em busca e filtros.
 - Documentar claramente as fontes de dados e a última atualização disponível.
 
-## Desenvolvimento
+## Desenvolvimento do backlog
 
 As próximas etapas do backlog estão organizadas no Linear no projeto `Cola Eleitoral 2026`, começando por:
 
