@@ -11,6 +11,7 @@ const offices = new Set<CandidateOffice>([
 ]);
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function parseOffice(value: string | null): CandidateOffice | undefined {
   if (!value) {

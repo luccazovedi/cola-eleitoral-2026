@@ -72,7 +72,7 @@ A persistência do MVP deve ser local, usando armazenamento do navegador, com op
 - Tailwind CSS
 - Componentes acessíveis e reutilizáveis
 - localStorage para persistência local
-- Deploy em Vercel ou GitHub Pages para preview estático
+- Deploy em Vercel com runtime para a API de candidatos
 
 ## Desenvolvimento local
 
@@ -89,15 +89,15 @@ Scripts disponíveis:
 - `npm run lint`: executa a verificação de lint.
 - `npm run typecheck`: executa a verificação de TypeScript.
 
-## GitHub Pages
+## Aplicação ao vivo
 
-O repositório inclui um workflow em `.github/workflows/pages.yml` que publica o site no GitHub Pages a cada push em `main`.
+A aplicação é publicada na Vercel, onde a rota server-side `/api/candidates` pode consultar e normalizar os dados oficiais do TSE.
 
-A URL esperada é:
+**Acesso:** https://cola-eleitoral-2026-azure.vercel.app/
 
-https://luccazovedi.github.io/cola-eleitoral-2026/
+Cada atualização da branch `main` pode gerar uma nova implantação pela integração entre GitHub e Vercel. O GitHub permanece como fonte do código e da documentação; a hospedagem da aplicação e o runtime da API ficam na Vercel.
 
-Para Pages, o Next.js usa export estático com `basePath` `/cola-eleitoral-2026`. Rotas server-side, como `/api/candidates`, não executam no GitHub Pages; elas continuam úteis para deploys com runtime de servidor, como Vercel. O preview estático do Pages cobre a interface e o fluxo client-side.
+Quando o TSE bloqueia uma consulta feita pelo runtime da Vercel, a interface usa como contingência o mesmo ZIP oficial diretamente do CDN do TSE, processado no navegador. As escolhas continuam locais e não são enviadas ao servidor.
 
 ## Segurança e neutralidade
 

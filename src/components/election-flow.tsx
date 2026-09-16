@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Loader2, MapPin, ReceiptText, Search } from 
 import { useEffect, useMemo, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
 import { electionFlow, type ElectionStepId } from "@/lib/project";
+import { searchCandidatesFromTseCdn } from "@/lib/tse/client";
 import type { Candidate, CandidateOffice, CandidateSearchResult } from "@/types/candidate";
 
 type SelectionState = Record<ElectionStepId, Candidate | null>;
@@ -89,11 +90,14 @@ export function ElectionFlow() {
           signal: controller.signal,
         });
 
-        if (!response.ok) {
-          throw new Error("A fonte oficial nao respondeu para esta busca.");
-        }
-
-        const result = (await response.json()) as CandidateSearchResult;
+        const result = response.ok
+          ? ((await response.json()) as CandidateSearchResult)
+          : await searchCandidatesFromTseCdn({
+              office: currentOffice,
+              uf: currentOffice === "presidente" ? "BR" : uf,
+              q: query.trim() || undefined,
+              limit: 24,
+            });
         setCandidates(result.candidates);
         setSourceUpdatedAt(result.source.updatedAt);
       } catch (error) {
