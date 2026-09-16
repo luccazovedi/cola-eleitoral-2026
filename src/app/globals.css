@@ -41,6 +41,77 @@ select {
   outline-offset: 3px;
 }
 
+.receipt-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(#111827 0 48px, #e5e7eb 48px 50px, #f8fafc 50px);
+  padding: 24px 14px 14px;
+}
+
+.receipt-cutter {
+  position: relative;
+  z-index: 2;
+  margin: 0 auto 8px;
+  width: min(100%, 340px);
+  border-top: 2px dashed #94a3b8;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 20px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.receipt-paper {
+  width: min(100%, 340px);
+  margin: 0 auto;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 20px 18px;
+  box-shadow: 0 18px 35px rgb(15 23 42 / 18%);
+  transform-origin: top center;
+  animation: receipt-print 1200ms cubic-bezier(.2, .8, .2, 1) both, receipt-cut 260ms ease-in 1250ms both;
+}
+
+.receipt-paper::after {
+  content: "";
+  display: block;
+  height: 10px;
+  margin: 18px -18px -20px;
+  background: linear-gradient(135deg, transparent 8px, #ffffff 0) 0 0 / 16px 100%,
+    linear-gradient(225deg, transparent 8px, #ffffff 0) 0 0 / 16px 100%;
+}
+
+@keyframes receipt-print {
+  from {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-100%) scaleY(.9);
+  }
+
+  65% {
+    opacity: 1;
+  }
+
+  to {
+    max-height: 720px;
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes receipt-cut {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0 round 0 0 8px 8px);
+  }
+}
+
 @media print {
   body {
     background: #ffffff;
