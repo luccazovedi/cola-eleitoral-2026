@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f8fafc" />
+    <title>Cola Eleitoral 2026</title>
+    <meta
+      name="description"
+      content="MVP neutro e privado para montar uma cola eleitoral digital com dados oficiais do TSE."
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f8fafc;
+        --fg: #111827;
+        --muted: #64748b;
+        --line: #d7dee8;
+        --surface: #ffffff;
+        --teal: #0f766e;
+        --teal-dark: #115e59;
+        --slate: #0f172a;
+        --amber-bg: #fffbeb;
+        --amber-line: #fcd34d;
+        --amber-text: #78350f;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      a { color: inherit; }
+      button, select { font: inherit; }
+      :focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+
+      .shell {
+        width: min(100%, 1060px);
+        margin: 0 auto;
+        padding: 24px 16px;
+        display: grid;
+        gap: 40px;
+      }
+      .hero {
+        display: grid;
+        gap: 20px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .pill {
+        width: fit-content;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgb(15 118 110 / 25%);
+        border-radius: 999px;
+        background: white;
+        color: #134e4a;
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .hero-grid {
+        display: grid;
+        gap: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(40px, 7vw, 56px);
+        line-height: 1.04;
+        letter-spacing: 0;
+      }
+      .lead {
+        max-width: 760px;
+        margin: 16px 0 0;
+        color: #334155;
+        font-size: 18px;
+        line-height: 1.65;
+      }
+      .button {
+        min-height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--teal);
+        color: white;
+        padding: 12px 20px;
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .button:hover { background: var(--teal-dark); }
+      .button.secondary {
+        border: 1px solid #cbd5e1;
+        background: white;
+        color: var(--slate);
+      }
+      .button.secondary:hover { border-color: #64748b; background: white; }
+      .button.dark { background: var(--slate); }
+      .button:disabled {
+        background: #cbd5e1;
+        color: #64748b;
+        cursor: not-allowed;
+      }
+      .grid { display: grid; gap: 20px; }
+      .flow-grid { display: grid; gap: 20px; }
+      .card {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+      }
+      .flow { padding: 20px; }
+      .section-title { margin: 0; font-size: 28px; line-height: 1.2; letter-spacing: 0; }
+      .copy { color: #475569; font-size: 14px; line-height: 1.65; }
+      .field-row { display: grid; gap: 12px; margin-top: 24px; }
+      label { display: grid; gap: 8px; color: #0f172a; font-size: 14px; font-weight: 800; }
+      select {
+        min-height: 48px;
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: white;
+        color: #0f172a;
+        padding: 0 12px;
+        font-size: 16px;
+      }
+      .notice {
+        margin-top: 24px;
+        border: 1px solid var(--amber-line);
+        border-radius: 6px;
+        background: var(--amber-bg);
+        color: var(--amber-text);
+        padding: 16px;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+      .progress-wrap { display: grid; gap: 10px; margin-top: 24px; }
+      .progress-meta { display: flex; justify-content: space-between; color: #475569; font-size: 14px; font-weight: 700; }
+      .progress { height: 12px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+      .progress > span { display: block; height: 100%; width: 17%; border-radius: 999px; background: var(--teal); }
+      .step-panel {
+        margin-top: 20px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 16px;
+      }
+      .uf-label { margin: 0; color: #475569; font-size: 13px; font-weight: 800; text-transform: uppercase; }
+      .step-name { margin: 8px 0 0; font-size: 28px; line-height: 1.2; letter-spacing: 0; }
+      .pending {
+        margin-top: 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: white;
+        padding: 12px;
+        color: #475569;
+        font-size: 14px;
+      }
+      .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+      .steps-list { padding: 20px; }
+      .steps-list h2 { margin: 0; font-size: 20px; letter-spacing: 0; }
+      ol { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 8px; }
+      .step-button {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: white;
+        padding: 12px;
+        color: #0f172a;
+        text-align: left;
+        cursor: pointer;
+      }
+      .step-button[aria-current="step"] { border-color: var(--teal); background: #f0fdfa; }
+      .step-button:disabled { cursor: not-allowed; opacity: .6; }
+      .number {
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: var(--slate);
+        color: white;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .principles { display: grid; gap: 12px; }
+      .mini-card { padding: 16px; font-size: 14px; font-weight: 800; line-height: 1.5; }
+      .sources { padding: 20px; }
+      .source-list { display: grid; gap: 12px; margin-top: 16px; }
+      .source-list a {
+        min-height: 56px;
+        display: flex;
+        align-items: center;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 12px;
+        color: #0f172a;
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+      }
+      .source-list a:hover { border-color: var(--teal); color: var(--teal-dark); }
+      footer { border-top: 1px solid #e2e8f0; padding: 20px 0; color: #64748b; font-size: 14px; line-height: 1.6; }
+
+      @media (min-width: 760px) {
+        .hero-grid { grid-template-columns: 1fr auto; align-items: end; }
+        .field-row { grid-template-columns: 1fr auto; align-items: end; }
+        .principles { grid-template-columns: repeat(3, 1fr); }
+        .source-list { grid-template-columns: repeat(3, 1fr); }
+      }
+      @media (min-width: 980px) {
+        .flow-grid { grid-template-columns: 1fr 360px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div class="pill">MVP independente e neutro</div>
+        <div class="hero-grid">
+          <div>
+            <h1>Cola Eleitoral 2026</h1>
+            <p class="lead">
+              Monte uma cola eleitoral pessoal com dados oficiais do TSE, sem voto online, sem recomendacao politica e sem registrar escolhas em backend ou analytics.
+            </p>
+          </div>
+          <a class="button" href="#fluxo">Comecar</a>
+        </div>
+      </header>
+
+      <section id="fluxo" class="flow-grid" aria-labelledby="fluxo-title">
+        <div class="card flow">
+          <h2 id="fluxo-title" class="section-title">Monte sua cola por UF e cargo</h2>
+          <p class="copy">
+            A UF e obrigatoria antes da busca. O fluxo preserva o progresso enquanto voce avanca e volta entre os cargos.
+          </p>
+
+          <div class="field-row">
+            <label for="uf">
+              UF do eleitor
+              <select id="uf">
+                <option value="">Selecione uma UF</option>
+              </select>
+            </label>
+            <button id="start" class="button dark" type="button" disabled>Iniciar fluxo</button>
+          </div>
+
+          <div id="notice" class="notice" role="status">
+            Selecione a UF para liberar as etapas de cargos. Nenhuma escolha politica sera enviada para analytics.
+          </div>
+
+          <div id="started" hidden>
+            <div class="progress-wrap" role="group" aria-label="Progresso do fluxo">
+              <div class="progress-meta"><span id="step-count">Etapa 1 de 6</span><span id="pct">17%</span></div>
+              <div class="progress"><span id="bar"></span></div>
+            </div>
+            <article class="step-panel">
+              <p id="uf-label" class="uf-label"></p>
+              <h3 id="step-name" class="step-name"></h3>
+              <p id="step-helper" class="copy"></p>
+              <p class="pending">Selecao atual: pendente</p>
+            </article>
+            <div class="actions">
+              <button id="back" class="button secondary" type="button">Voltar</button>
+              <button id="next" class="button" type="button">Avancar</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="card steps-list" aria-labelledby="ordem-title">
+          <h2 id="ordem-title">Ordem dos cargos</h2>
+          <ol id="steps"></ol>
+        </aside>
+      </section>
+
+      <section class="principles" aria-label="Principios do produto">
+        <div class="card mini-card">Sem login obrigatorio</div>
+        <div class="card mini-card">Escolhas salvas apenas no dispositivo</div>
+        <div class="card mini-card">Sem envio de candidato ou partido para analytics</div>
+      </section>
+
+      <aside class="card sources" aria-labelledby="fontes-title">
+        <h2 id="fontes-title">Fontes oficiais</h2>
+        <p class="copy">A integracao de candidatos deve documentar a origem e mostrar a data de ultima atualizacao disponivel.</p>
+        <div class="source-list">
+          <a href="https://dadosabertos.tse.jus.br/" target="_blank" rel="noreferrer">Portal de Dados Abertos do TSE</a>
+          <a href="https://dadosabertos.tse.jus.br/dataset/candidatos-2026" target="_blank" rel="noreferrer">Candidatos - 2026</a>
+          <a href="https://divulgacandcontas.tse.jus.br/divulga/#/" target="_blank" rel="noreferrer">Divulgacao de Candidaturas e Contas Eleitorais</a>
+        </div>
+      </aside>
+
+      <footer>
+        Este projeto e independente, nao possui vinculo oficial com a Justica Eleitoral e nao emite comprovante de voto.
+      </footer>
+    </main>
+
+    <script>
+      const states = [
+        ["AC", "Acre"], ["AL", "Alagoas"], ["AP", "Amapa"], ["AM", "Amazonas"],
+        ["BA", "Bahia"], ["CE", "Ceara"], ["DF", "Distrito Federal"], ["ES", "Espirito Santo"],
+        ["GO", "Goias"], ["MA", "Maranhao"], ["MT", "Mato Grosso"], ["MS", "Mato Grosso do Sul"],
+        ["MG", "Minas Gerais"], ["PA", "Para"], ["PB", "Paraiba"], ["PR", "Parana"],
+        ["PE", "Pernambuco"], ["PI", "Piaui"], ["RJ", "Rio de Janeiro"], ["RN", "Rio Grande do Norte"],
+        ["RS", "Rio Grande do Sul"], ["RO", "Rondonia"], ["RR", "Roraima"], ["SC", "Santa Catarina"],
+        ["SP", "Sao Paulo"], ["SE", "Sergipe"], ["TO", "Tocantins"]
+      ];
+      const steps = [
+        ["Deputado federal", "Escolha uma candidatura para representar seu estado na Camara dos Deputados."],
+        ["Deputado estadual ou distrital", "No DF, esta etapa usa deputado distrital; nas demais UFs, deputado estadual."],
+        ["Senador - 1a escolha", "Primeira vaga ao Senado. A proxima etapa usa uma segunda escolha separada."],
+        ["Senador - 2a escolha", "Segunda vaga ao Senado. A mesma candidatura nao podera ser usada duas vezes."],
+        ["Governador", "Escolha uma candidatura ao governo da UF selecionada."],
+        ["Presidente", "Etapa nacional para a Presidencia da Republica."]
+      ];
+
+      const uf = document.querySelector("#uf");
+      const start = document.querySelector("#start");
+      const notice = document.querySelector("#notice");
+      const started = document.querySelector("#started");
+      const back = document.querySelector("#back");
+      const next = document.querySelector("#next");
+      const stepsList = document.querySelector("#steps");
+      const stepCount = document.querySelector("#step-count");
+      const pct = document.querySelector("#pct");
+      const bar = document.querySelector("#bar");
+      const ufLabel = document.querySelector("#uf-label");
+      const stepName = document.querySelector("#step-name");
+      const stepHelper = document.querySelector("#step-helper");
+      let index = 0;
+      let hasStarted = false;
+
+      states.forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = `${value} - ${label}`;
+        uf.append(option);
+      });
+
+      function renderSteps() {
+        stepsList.innerHTML = "";
+        steps.forEach(([label], stepIndex) => {
+          const li = document.createElement("li");
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "step-button";
+          button.disabled = !hasStarted;
+          if (hasStarted && stepIndex === index) button.setAttribute("aria-current", "step");
+          button.innerHTML = `<span class="number">${stepIndex + 1}</span><strong>${label}</strong>`;
+          button.addEventListener("click", () => { index = stepIndex; render(); });
+          li.append(button);
+          stepsList.append(li);
+        });
+      }
+
+      function render() {
+        start.disabled = uf.value.length !== 2;
+        started.hidden = !hasStarted;
+        notice.hidden = hasStarted;
+        const percent = Math.round(((index + 1) / steps.length) * 100);
+        stepCount.textContent = `Etapa ${index + 1} de ${steps.length}`;
+        pct.textContent = `${percent}%`;
+        bar.style.width = `${percent}%`;
+        ufLabel.textContent = uf.value;
+        stepName.textContent = steps[index][0];
+        stepHelper.textContent = steps[index][1];
+        back.disabled = index === 0;
+        next.disabled = index === steps.length - 1;
+        renderSteps();
+      }
+
+      uf.addEventListener("change", () => {
+        hasStarted = false;
+        index = 0;
+        render();
+      });
+      start.addEventListener("click", () => {
+        if (!uf.value) return;
+        hasStarted = true;
+        render();
+      });
+      back.addEventListener("click", () => { index = Math.max(0, index - 1); render(); });
+      next.addEventListener("click", () => { index = Math.min(steps.length - 1, index + 1); render(); });
+      render();
+    </script>
+  </body>
+</html>
