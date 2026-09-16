@@ -72,7 +72,7 @@ A persistência do MVP deve ser local, usando armazenamento do navegador, com op
 - Tailwind CSS
 - Componentes acessíveis e reutilizáveis
 - localStorage para persistência local
-- Deploy em Vercel
+- Deploy em Vercel ou GitHub Pages para preview estático
 
 ## Desenvolvimento local
 
@@ -88,6 +88,16 @@ Scripts disponíveis:
 - `npm run start`: inicia a build de produção.
 - `npm run lint`: executa a verificação de lint.
 - `npm run typecheck`: executa a verificação de TypeScript.
+
+## GitHub Pages
+
+O repositório inclui um workflow em `.github/workflows/pages.yml` que publica o site no GitHub Pages a cada push em `main`.
+
+A URL esperada é:
+
+https://luccazovedi.github.io/cola-eleitoral-2026/
+
+Para Pages, o Next.js usa export estático com `basePath` `/cola-eleitoral-2026`. Rotas server-side, como `/api/candidates`, não executam no GitHub Pages; elas continuam úteis para deploys com runtime de servidor, como Vercel. O preview estático do Pages cobre a interface e o fluxo client-side.
 
 ## Segurança e neutralidade
 
