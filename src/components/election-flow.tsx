@@ -1,36 +1,182 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, ReceiptText, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
 import { electionFlow, type ElectionStepId } from "@/lib/project";
+import type { Candidate, CandidateOffice, CandidateSearchResult } from "@/types/candidate";
 
-type DraftSelection = {
-  candidateId: string | null;
+type SelectionState = Record<ElectionStepId, Candidate | null>;
+
+const initialSelections = Object.fromEntries(electionFlow.map((step) => [step.id, null])) as SelectionState;
+
+const officeByStep: Record<ElectionStepId, CandidateOffice> = {
+  "deputado-federal": "deputado-federal",
+  "deputado-estadual-distrital": "deputado-estadual-distrital",
+  "senador-1": "senador",
+  "senador-2": "senador",
+  governador: "governador",
+  presidente: "presidente",
 };
 
-const initialSelections = Object.fromEntries(
-  electionFlow.map((step) => [step.id, { candidateId: null }]),
-) as Record<ElectionStepId, DraftSelection>;
+function candidateInitials(candidate: Candidate): string {
+  return candidate.ballotName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function formatUpdatedAt(value: string | null): string {
+  if (!value) {
+    return "data nao informada";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 
 export function ElectionFlow() {
   const [uf, setUf] = useState<BrazilianStateCode | "">("");
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selections] = useState(initialSelections);
+  const [selections, setSelections] = useState<SelectionState>(initialSelections);
+  const [query, setQuery] = useState("");
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [sourceUpdatedAt, setSourceUpdatedAt] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [finalized, setFinalized] = useState(false);
   const currentStep = electionFlow[currentIndex];
+  const currentOffice = officeByStep[currentStep.id];
+  const selectedCandidate = selections[currentStep.id];
   const progress = useMemo(
     () => Math.round(((currentIndex + 1) / electionFlow.length) * 100),
     [currentIndex],
   );
-
+  const selectedCount = Object.values(selections).filter(Boolean).length;
   const canStart = uf.length === 2;
   const canGoBack = currentIndex > 0;
   const canGoForward = currentIndex < electionFlow.length - 1;
+  const isLastStep = currentIndex === electionFlow.length - 1;
+
+  useEffect(() => {
+    if (!started || !uf) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      const params = new URLSearchParams({
+        office: currentOffice,
+        uf: currentOffice === "presidente" ? "BR" : uf,
+        limit: "24",
+      });
+
+      if (query.trim()) {
+        params.set("q", query.trim());
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        const response = await fetch(`/api/candidates?${params.toString()}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("A fonte oficial nao respondeu para esta busca.");
+        }
+
+        const result = (await response.json()) as CandidateSearchResult;
+        setCandidates(result.candidates);
+        setSourceUpdatedAt(result.source.updatedAt);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setCandidates([]);
+          setSourceUpdatedAt(null);
+          setLoadError(error instanceof Error ? error.message : "Nao foi possivel buscar candidatos.");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [currentOffice, query, started, uf]);
+
+  function selectCandidate(candidate: Candidate) {
+    if (currentStep.id === "senador-2" && selections["senador-1"]?.id === candidate.id) {
+      setLoadError("Escolha outro candidato para a segunda vaga ao Senado.");
+      return;
+    }
+
+    if (currentStep.id === "senador-1" && selections["senador-2"]?.id === candidate.id) {
+      setLoadError("Este candidato ja esta na segunda escolha ao Senado.");
+      return;
+    }
+
+    setLoadError(null);
+    setSelections((current) => ({
+      ...current,
+      [currentStep.id]: candidate,
+    }));
+  }
+
+  function resetFlow(nextUf: BrazilianStateCode | "") {
+    setUf(nextUf);
+    setStarted(false);
+    setCurrentIndex(0);
+    setSelections(initialSelections);
+    setQuery("");
+    setFinalized(false);
+  }
 
   return (
     <section id="fluxo" aria-labelledby="fluxo-title" className="grid gap-5 lg:grid-cols-[1fr_360px]">
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        {finalized ? (
+          <div className="receipt-stage mb-6" aria-live="polite">
+            <div className="receipt-cutter">corte aqui</div>
+            <article className="receipt-paper" aria-label="Cola eleitoral gerada">
+              <div className="text-center">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Cola Eleitoral 2026</p>
+                <h2 className="mt-1 text-xl font-black tracking-normal text-slate-950">{uf}</h2>
+                <p className="mt-1 text-xs text-slate-600">Sem validade oficial. Nao e comprovante de voto.</p>
+              </div>
+              <div className="my-4 border-t border-dashed border-slate-400" />
+              <ol className="grid gap-3">
+                {electionFlow.map((step) => {
+                  const candidate = selections[step.id];
+                  return (
+                    <li key={step.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
+                      <span>
+                        <strong className="block text-slate-950">{step.label}</strong>
+                        <span className="text-slate-600">{candidate?.ballotName ?? "Pendente"}</span>
+                      </span>
+                      <strong className="font-mono text-lg text-slate-950">{candidate?.number ?? "--"}</strong>
+                    </li>
+                  );
+                })}
+              </ol>
+              <div className="my-4 border-t border-dashed border-slate-400" />
+              <p className="text-xs leading-5 text-slate-600">
+                Fonte: dados oficiais do TSE. Atualizacao: {formatUpdatedAt(sourceUpdatedAt)}. Escolhas mantidas no dispositivo.
+              </p>
+            </article>
+          </div>
+        ) : null}
+
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-teal-700 text-white">
             <MapPin aria-hidden="true" className="size-5" />
@@ -40,7 +186,7 @@ export function ElectionFlow() {
               Monte sua cola por UF e cargo
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-700">
-              A UF e obrigatoria antes da busca. O fluxo preserva o progresso enquanto voce avanca e volta entre os cargos.
+              Pesquise candidatos oficiais por nome, numero ou partido. Suas escolhas ficam apenas nesta sessao do navegador.
             </p>
           </div>
         </div>
@@ -51,11 +197,7 @@ export function ElectionFlow() {
             <select
               className="min-h-12 rounded-md border border-slate-300 bg-white px-3 text-base text-slate-950 shadow-sm"
               id="uf"
-              onChange={(event) => {
-                setUf(event.target.value as BrazilianStateCode | "");
-                setStarted(false);
-                setCurrentIndex(0);
-              }}
+              onChange={(event) => resetFlow(event.target.value as BrazilianStateCode | "")}
               value={uf}
             >
               <option value="">Selecione uma UF</option>
@@ -96,33 +238,109 @@ export function ElectionFlow() {
             </div>
 
             <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-semibold uppercase text-slate-600">{uf}</p>
+              <p className="text-sm font-semibold uppercase text-slate-600">{currentOffice === "presidente" ? "BR" : uf}</p>
               <h3 className="mt-2 text-2xl font-bold tracking-normal text-slate-950">{currentStep.label}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-700">{currentStep.helper}</p>
               <p className="mt-4 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-700">
-                Selecao atual: {selections[currentStep.id].candidateId ?? "pendente"}
+                Selecao atual: {selectedCandidate ? `${selectedCandidate.number} - ${selectedCandidate.ballotName}` : "pendente"}
               </p>
             </article>
+
+            <label className="grid gap-2 text-sm font-semibold text-slate-900" htmlFor="candidate-search">
+              Buscar candidato
+              <div className="relative">
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+                <input
+                  className="min-h-12 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-base text-slate-950 shadow-sm"
+                  id="candidate-search"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Nome, numero ou partido"
+                  type="search"
+                  value={query}
+                />
+              </div>
+            </label>
+
+            {loadError ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="status">
+                {loadError}
+              </div>
+            ) : null}
+
+            <div className="grid gap-3" aria-busy={isLoading}>
+              {isLoading ? (
+                <div className="flex min-h-24 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white text-sm font-semibold text-slate-700">
+                  <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                  Carregando candidatos oficiais
+                </div>
+              ) : null}
+
+              {!isLoading && candidates.length === 0 ? (
+                <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
+                  Nenhum candidato encontrado para este filtro. Tente nome, numero ou partido.
+                </div>
+              ) : null}
+
+              {!isLoading && candidates.map((candidate) => {
+                const isSelected = selectedCandidate?.id === candidate.id;
+                return (
+                  <button
+                    aria-pressed={isSelected}
+                    className="grid min-h-24 grid-cols-[56px_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-teal-700 aria-pressed:border-teal-700 aria-pressed:bg-teal-50"
+                    key={candidate.id}
+                    onClick={() => selectCandidate(candidate)}
+                    type="button"
+                  >
+                    <span className="flex size-14 items-center justify-center rounded-md bg-slate-200 text-sm font-black text-slate-700" aria-label="Foto nao disponivel">
+                      {candidateInitials(candidate)}
+                    </span>
+                    <span className="min-w-0">
+                      <strong className="block truncate text-base text-slate-950">{candidate.ballotName}</strong>
+                      <span className="block text-sm text-slate-600">{candidate.fullName}</span>
+                      <span className="block text-sm font-semibold text-slate-700">{candidate.party || "Partido nao informado"}</span>
+                    </span>
+                    <strong className="font-mono text-2xl text-slate-950">{candidate.number}</strong>
+                  </button>
+                );
+              })}
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <button
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition enabled:hover:border-slate-500 disabled:cursor-not-allowed disabled:text-slate-400"
                 disabled={!canGoBack}
-                onClick={() => setCurrentIndex((index) => Math.max(index - 1, 0))}
+                onClick={() => {
+                  setCurrentIndex((index) => Math.max(index - 1, 0));
+                  setQuery("");
+                }}
                 type="button"
               >
                 <ChevronLeft aria-hidden="true" className="size-4" />
                 Voltar
               </button>
-              <button
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition enabled:hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
-                disabled={!canGoForward}
-                onClick={() => setCurrentIndex((index) => Math.min(index + 1, electionFlow.length - 1))}
-                type="button"
-              >
-                Avancar
-                <ChevronRight aria-hidden="true" className="size-4" />
-              </button>
+              {isLastStep ? (
+                <button
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800"
+                  onClick={() => setFinalized(true)}
+                  type="button"
+                >
+                  <ReceiptText aria-hidden="true" className="size-4" />
+                  Finalizar
+                </button>
+              ) : (
+                <button
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition enabled:hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                  disabled={!canGoForward}
+                  onClick={() => {
+                    setCurrentIndex((index) => Math.min(index + 1, electionFlow.length - 1));
+                    setQuery("");
+                  }}
+                  type="button"
+                >
+                  Avancar
+                  <ChevronRight aria-hidden="true" className="size-4" />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -132,16 +350,21 @@ export function ElectionFlow() {
         <h2 id="ordem-title" className="text-lg font-bold text-slate-950">
           Ordem dos cargos
         </h2>
+        <p className="mt-1 text-sm text-slate-600">{selectedCount} de {electionFlow.length} cargos selecionados</p>
         <ol className="mt-4 grid gap-2">
           {electionFlow.map((step, index) => {
             const isCurrent = started && index === currentIndex;
+            const candidate = selections[step.id];
             return (
               <li key={step.id}>
                 <button
                   aria-current={isCurrent ? "step" : undefined}
                   className="flex w-full items-center gap-3 rounded-md border border-slate-200 bg-white p-3 text-left text-sm transition hover:border-teal-700 disabled:cursor-not-allowed disabled:opacity-60 aria-[current=step]:border-teal-700 aria-[current=step]:bg-teal-50"
                   disabled={!started}
-                  onClick={() => setCurrentIndex(index)}
+                  onClick={() => {
+                    setCurrentIndex(index);
+                    setQuery("");
+                  }}
                   type="button"
                 >
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
@@ -149,7 +372,9 @@ export function ElectionFlow() {
                   </span>
                   <span className="grid gap-1">
                     <span className="font-semibold text-slate-950">{step.label}</span>
-                    {isCurrent ? <span className="text-xs font-medium text-teal-800">Etapa atual</span> : null}
+                    <span className="text-xs font-medium text-slate-600">
+                      {candidate ? `${candidate.number} - ${candidate.ballotName}` : isCurrent ? "Etapa atual" : "Pendente"}
+                    </span>
                   </span>
                 </button>
               </li>
