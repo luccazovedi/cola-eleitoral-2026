@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Pencil, ReceiptText, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, MapPin, Pencil, Printer, ReceiptText, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
@@ -90,6 +90,7 @@ export function ElectionFlow() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [finalized, setFinalized] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const currentStep = electionFlow[currentIndex];
   const currentOffice = officeByStep[currentStep.id];
@@ -283,6 +284,89 @@ export function ElectionFlow() {
     setFinalized(true);
   }
 
+  function exportReceiptAsImage() {
+    try {
+      const width = 720;
+      const rowHeight = 76;
+      const height = 280 + electionFlow.length * rowHeight;
+      const scale = 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        throw new Error("Canvas indisponível");
+      }
+
+      context.scale(scale, scale);
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.fillStyle = "#0f172a";
+      context.textAlign = "center";
+      context.font = "700 22px Arial, sans-serif";
+      context.fillText("COLA ELEITORAL 2026", width / 2, 48);
+      context.font = "900 34px Arial, sans-serif";
+      context.fillText(uf, width / 2, 88);
+      context.fillStyle = "#475569";
+      context.font = "16px Arial, sans-serif";
+      context.fillText("Sem validade oficial. Não é comprovante de voto.", width / 2, 118);
+      context.strokeStyle = "#94a3b8";
+      context.setLineDash([8, 8]);
+      context.beginPath();
+      context.moveTo(40, 146);
+      context.lineTo(width - 40, 146);
+      context.stroke();
+      context.setLineDash([]);
+
+      electionFlow.forEach((step, index) => {
+        const candidate = selections[step.id];
+        const y = 188 + index * rowHeight;
+        context.textAlign = "left";
+        context.fillStyle = "#0f172a";
+        context.font = "700 18px Arial, sans-serif";
+        context.fillText(step.label, 48, y);
+        context.fillStyle = "#475569";
+        context.font = "16px Arial, sans-serif";
+        context.fillText(candidate?.ballotName ?? "Pendente", 48, y + 26);
+        context.textAlign = "right";
+        context.fillStyle = "#0f172a";
+        context.font = "900 30px monospace";
+        context.fillText(candidate?.number ?? "--", width - 48, y + 12);
+      });
+
+      const footerY = 190 + electionFlow.length * rowHeight;
+      context.strokeStyle = "#94a3b8";
+      context.setLineDash([8, 8]);
+      context.beginPath();
+      context.moveTo(40, footerY);
+      context.lineTo(width - 40, footerY);
+      context.stroke();
+      context.setLineDash([]);
+      context.textAlign = "center";
+      context.fillStyle = "#475569";
+      context.font = "14px Arial, sans-serif";
+      context.fillText("Fonte: dados oficiais do TSE · Escolhas mantidas no dispositivo", width / 2, footerY + 34);
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          setExportMessage("Não foi possível gerar a imagem neste navegador.");
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = `cola-eleitoral-2026-${uf}.png`;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        setExportMessage("Imagem salva no dispositivo.");
+      }, "image/png");
+    } catch {
+      setExportMessage("A exportação como imagem não é suportada neste navegador.");
+    }
+  }
+
   return (
     <section id="fluxo" aria-labelledby="fluxo-title" className="grid gap-5 lg:grid-cols-[1fr_360px]">
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -315,6 +399,29 @@ export function ElectionFlow() {
                 Fonte: dados oficiais do TSE. Atualização: {formatUpdatedAt(sourceUpdatedAt)}. Escolhas mantidas no dispositivo.
               </p>
             </article>
+            <div className="no-print mx-auto mt-4 grid w-full max-w-[340px] grid-cols-2 gap-3">
+              <button
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-white px-3 py-3 text-sm font-bold text-slate-950 shadow-sm hover:bg-slate-100"
+                onClick={() => window.print()}
+                type="button"
+              >
+                <Printer aria-hidden="true" className="size-4" />
+                Imprimir
+              </button>
+              <button
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-teal-800"
+                onClick={exportReceiptAsImage}
+                type="button"
+              >
+                <Download aria-hidden="true" className="size-4" />
+                Salvar imagem
+              </button>
+            </div>
+            {exportMessage ? (
+              <p className="no-print mt-3 text-center text-sm font-semibold text-white" role="status">
+                {exportMessage}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
