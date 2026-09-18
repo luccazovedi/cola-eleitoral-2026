@@ -130,8 +130,42 @@ select {
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
   body {
     background: #ffffff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt-stage,
+  .receipt-stage * {
+    visibility: visible;
+  }
+
+  .receipt-stage {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    overflow: visible;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .receipt-paper {
+    width: 90mm;
+    max-width: 100%;
+    box-shadow: none;
+    animation: none;
+  }
+
+  .receipt-cutter {
+    display: none;
   }
 
   .no-print {
