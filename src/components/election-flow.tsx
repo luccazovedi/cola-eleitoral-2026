@@ -11,6 +11,12 @@ import type { Candidate, CandidateOffice, CandidateSearchResult } from "@/types/
 
 type SelectionState = Record<ElectionStepId, Candidate | null>;
 
+type CandidateAvatarProps = {
+  candidate: Candidate;
+  photoUrl?: string;
+  size?: "sm" | "md";
+};
+
 type PersistedElectionState = {
   version: 1;
   uf: BrazilianStateCode | "";
@@ -39,6 +45,41 @@ function candidateInitials(candidate: Candidate): string {
     .map((part) => part[0])
     .join("")
     .toUpperCase();
+}
+
+function CandidateAvatar({ candidate, photoUrl, size = "md" }: CandidateAvatarProps) {
+  const sizeClass = size === "sm" ? "size-10" : "size-12 sm:size-14";
+  const imageSize = size === "sm" ? "40px" : "(max-width: 639px) 48px, 56px";
+
+  return (
+    <span
+      className={`candidate-avatar relative flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-200 text-xs font-black text-slate-700`}
+    >
+      {photoUrl ? (
+        <Image
+          alt={`Foto de ${candidate.ballotName}`}
+          className="object-cover"
+          fill
+          sizes={imageSize}
+          src={photoUrl}
+          unoptimized
+        />
+      ) : (
+        <span aria-label={`Foto de ${candidate.ballotName} ainda não disponível`}>
+          {candidateInitials(candidate)}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function loadCanvasImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Não foi possível carregar a foto."));
+    image.src = url;
+  });
 }
 
 function formatUpdatedAt(value: string | null): string {
@@ -104,6 +145,10 @@ export function ElectionFlow() {
   const canGoBack = currentIndex > 0;
   const canGoForward = currentIndex < electionFlow.length - 1;
   const isLastStep = currentIndex === electionFlow.length - 1;
+  const selectedCandidates = useMemo(
+    () => Object.values(selections).filter((candidate): candidate is Candidate => Boolean(candidate)),
+    [selections],
+  );
 
   useEffect(() => {
     if (started && !reviewing && !finalized) {
@@ -171,13 +216,11 @@ export function ElectionFlow() {
           return;
         }
 
-        setPhotoUrls({});
         setCandidates(result.candidates);
         setSourceUpdatedAt(result.source.updatedAt);
       } catch (error) {
         if (!controller.signal.aborted) {
           setCandidates([]);
-          setPhotoUrls({});
           setSourceUpdatedAt(null);
           setLoadError(error instanceof Error ? error.message : "Nao foi possivel buscar candidatos.");
         }
@@ -207,7 +250,7 @@ export function ElectionFlow() {
       candidates.map((candidate) => candidate.id),
     ).then((urls) => {
       if (active) {
-        setPhotoUrls(urls);
+        setPhotoUrls((current) => ({ ...current, ...urls }));
       }
     });
 
@@ -215,6 +258,35 @@ export function ElectionFlow() {
       active = false;
     };
   }, [candidates, currentOffice, started, uf]);
+
+  useEffect(() => {
+    if (selectedCandidates.length === 0) {
+      return;
+    }
+
+    let active = true;
+    const candidatesByUf = new Map<string, Candidate[]>();
+
+    for (const candidate of selectedCandidates) {
+      const group = candidatesByUf.get(candidate.uf) ?? [];
+      group.push(candidate);
+      candidatesByUf.set(candidate.uf, group);
+    }
+
+    void Promise.all(
+      Array.from(candidatesByUf, ([candidateUf, groupedCandidates]) =>
+        loadCandidatePhotoUrls(candidateUf, groupedCandidates.map((candidate) => candidate.id)),
+      ),
+    ).then((results) => {
+      if (active) {
+        setPhotoUrls((current) => Object.assign({}, current, ...results));
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedCandidates]);
 
   function selectCandidate(candidate: Candidate) {
     if (currentStep.id === "senador-2" && selections["senador-1"]?.id === candidate.id) {
@@ -240,6 +312,7 @@ export function ElectionFlow() {
     setStarted(false);
     setCurrentIndex(0);
     setSelections(initialSelections);
+    setPhotoUrls({});
     setQuery("");
     setReviewing(false);
     setFinalized(false);
@@ -284,10 +357,10 @@ export function ElectionFlow() {
     setFinalized(true);
   }
 
-  function exportReceiptAsImage() {
+  async function exportReceiptAsImage() {
     try {
       const width = 720;
-      const rowHeight = 76;
+      const rowHeight = 84;
       const height = 280 + electionFlow.length * rowHeight;
       const scale = 2;
       const canvas = document.createElement("canvas");
@@ -319,21 +392,33 @@ export function ElectionFlow() {
       context.stroke();
       context.setLineDash([]);
 
-      electionFlow.forEach((step, index) => {
+      for (const [index, step] of electionFlow.entries()) {
         const candidate = selections[step.id];
         const y = 188 + index * rowHeight;
+        const photoUrl = candidate ? photoUrls[candidate.id] : undefined;
+        const textX = photoUrl ? 116 : 48;
+
+        if (photoUrl) {
+          try {
+            const candidateImage = await loadCanvasImage(photoUrl);
+            context.drawImage(candidateImage, 48, y - 18, 52, 52);
+          } catch {
+            // O texto continua disponível como fallback quando a foto falha.
+          }
+        }
+
         context.textAlign = "left";
         context.fillStyle = "#0f172a";
         context.font = "700 18px Arial, sans-serif";
-        context.fillText(step.label, 48, y);
+        context.fillText(step.label, textX, y);
         context.fillStyle = "#475569";
         context.font = "16px Arial, sans-serif";
-        context.fillText(candidate?.ballotName ?? "Pendente", 48, y + 26);
+        context.fillText(candidate?.ballotName ?? "Pendente", textX, y + 26);
         context.textAlign = "right";
         context.fillStyle = "#0f172a";
         context.font = "900 30px monospace";
         context.fillText(candidate?.number ?? "--", width - 48, y + 12);
-      });
+      }
 
       const footerY = 190 + electionFlow.length * rowHeight;
       context.strokeStyle = "#94a3b8";
@@ -384,10 +469,15 @@ export function ElectionFlow() {
                 {electionFlow.map((step) => {
                   const candidate = selections[step.id];
                   return (
-                    <li key={step.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
-                      <span>
+                    <li key={step.id} className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+                      {candidate ? (
+                        <CandidateAvatar candidate={candidate} photoUrl={photoUrls[candidate.id]} size="sm" />
+                      ) : (
+                        <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-400">—</span>
+                      )}
+                      <span className="min-w-0">
                         <strong className="block text-slate-950">{step.label}</strong>
-                        <span className="text-slate-600">{candidate?.ballotName ?? "Pendente"}</span>
+                        <span className="block truncate text-slate-600">{candidate?.ballotName ?? "Pendente"}</span>
                       </span>
                       <strong className="font-mono text-lg text-slate-950">{candidate?.number ?? "--"}</strong>
                     </li>
@@ -410,7 +500,7 @@ export function ElectionFlow() {
               </button>
               <button
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-teal-800"
-                onClick={exportReceiptAsImage}
+                onClick={() => void exportReceiptAsImage()}
                 type="button"
               >
                 <Download aria-hidden="true" className="size-4" />
@@ -502,8 +592,13 @@ export function ElectionFlow() {
               {electionFlow.map((step) => {
                 const candidate = selections[step.id];
                 return (
-                  <li className="rounded-lg border border-slate-200 bg-slate-50 p-4" key={step.id}>
-                    <div className="flex items-start justify-between gap-4">
+                  <li className="review-card rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4" key={step.id}>
+                    <div className="grid grid-cols-[48px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[56px_minmax(0,1fr)_auto]">
+                      {candidate ? (
+                        <CandidateAvatar candidate={candidate} photoUrl={photoUrls[candidate.id]} />
+                      ) : (
+                        <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-lg bg-slate-200 text-sm font-bold text-slate-500 sm:size-14">—</span>
+                      )}
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-950">{step.label}</p>
                         {candidate ? (
@@ -516,7 +611,7 @@ export function ElectionFlow() {
                         )}
                       </div>
                       <button
-                        className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:border-teal-700"
+                        className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:border-teal-700 sm:col-auto"
                         onClick={() => editSelection(step.id)}
                         type="button"
                       >
@@ -549,7 +644,7 @@ export function ElectionFlow() {
             </div>
           </section>
         ) : (
-          <div className="mt-6 grid gap-5">
+          <div className="step-panel mt-6 grid gap-5" key={currentStep.id}>
             <div
               aria-label={`Etapa ${currentIndex + 1} de ${electionFlow.length}`}
               aria-valuemax={electionFlow.length}
@@ -565,7 +660,7 @@ export function ElectionFlow() {
                 <span>{progress}%</span>
               </div>
               <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full rounded-full bg-teal-700" style={{ width: `${progress}%` }} />
+                <div className="progress-fill h-full rounded-full bg-teal-700" style={{ width: `${progress}%` }} />
               </div>
             </div>
 
@@ -619,7 +714,7 @@ export function ElectionFlow() {
                 </div>
               ) : null}
 
-              {!isLoading && candidates.map((candidate) => {
+              {!isLoading && candidates.map((candidate, index) => {
                 const isSelected = selectedCandidate?.id === candidate.id;
                 const isSenateConflict =
                   (currentStep.id === "senador-2" && selections["senador-1"]?.id === candidate.id) ||
@@ -628,26 +723,14 @@ export function ElectionFlow() {
                   <button
                     aria-disabled={isSenateConflict}
                     aria-pressed={isSelected}
-                    className="grid min-h-24 grid-cols-[56px_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition enabled:hover:border-teal-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-65 aria-pressed:border-teal-700 aria-pressed:bg-teal-50"
+                    className="candidate-card grid min-h-20 grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-65 aria-pressed:border-teal-700 aria-pressed:bg-teal-50 sm:min-h-24 sm:grid-cols-[56px_minmax(0,1fr)_auto]"
                     disabled={isSenateConflict}
                     key={candidate.id}
                     onClick={() => selectCandidate(candidate)}
+                    style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
                     type="button"
                   >
-                    <span className="relative flex size-14 items-center justify-center overflow-hidden rounded-md bg-slate-200 text-sm font-black text-slate-700">
-                      {photoUrls[candidate.id] ? (
-                        <Image
-                          alt={`Foto de ${candidate.ballotName}`}
-                          className="object-cover"
-                          fill
-                          sizes="56px"
-                          src={photoUrls[candidate.id]}
-                          unoptimized
-                        />
-                      ) : (
-                        <span aria-label="Foto ainda não disponível">{candidateInitials(candidate)}</span>
-                      )}
-                    </span>
+                    <CandidateAvatar candidate={candidate} photoUrl={photoUrls[candidate.id]} />
                     <span className="min-w-0">
                       <strong className="block truncate text-base text-slate-950">{candidate.ballotName}</strong>
                       <span className="block text-sm text-slate-600">{candidate.fullName}</span>
@@ -664,13 +747,13 @@ export function ElectionFlow() {
                         </span>
                       ) : null}
                     </span>
-                    <strong className="font-mono text-2xl text-slate-950">{candidate.number}</strong>
+                    <strong className="font-mono text-xl text-slate-950 sm:text-2xl">{candidate.number}</strong>
                   </button>
                 );
               })}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="mobile-actions sticky bottom-2 z-10 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:static sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
               <button
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition enabled:hover:border-slate-500 disabled:cursor-not-allowed disabled:text-slate-400"
                 disabled={!canGoBack}
@@ -711,7 +794,7 @@ export function ElectionFlow() {
         )}
       </div>
 
-      <aside aria-labelledby="ordem-title" className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <aside aria-labelledby="ordem-title" className="hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:block">
         <h2 id="ordem-title" className="text-lg font-bold text-slate-950">
           Ordem dos cargos
         </h2>
