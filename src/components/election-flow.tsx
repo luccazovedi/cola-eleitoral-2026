@@ -48,6 +48,7 @@ function candidateInitials(candidate: Candidate): string {
 }
 
 function CandidateAvatar({ candidate, photoUrl, size = "md" }: CandidateAvatarProps) {
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | undefined>();
   const sizeClass = size === "sm" ? "size-10" : "size-12 sm:size-14";
   const imageSize = size === "sm" ? "40px" : "(max-width: 639px) 48px, 56px";
 
@@ -55,11 +56,12 @@ function CandidateAvatar({ candidate, photoUrl, size = "md" }: CandidateAvatarPr
     <span
       className={`candidate-avatar relative flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-200 text-xs font-black text-slate-700`}
     >
-      {photoUrl ? (
+      {photoUrl && failedPhotoUrl !== photoUrl ? (
         <Image
           alt={`Foto de ${candidate.ballotName}`}
           className="object-cover"
           fill
+          onError={() => setFailedPhotoUrl(photoUrl)}
           sizes={imageSize}
           src={photoUrl}
           unoptimized
@@ -76,6 +78,7 @@ function CandidateAvatar({ candidate, photoUrl, size = "md" }: CandidateAvatarPr
 function loadCanvasImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new window.Image();
+    image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Não foi possível carregar a foto."));
     image.src = url;
