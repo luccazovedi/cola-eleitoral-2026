@@ -101,6 +101,85 @@ select {
     linear-gradient(225deg, transparent 8px, #ffffff 0) 0 0 / 16px 100%;
 }
 
+.step-panel {
+  animation: step-enter 320ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.progress-fill {
+  transition: width 360ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.candidate-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
+  opacity: 0;
+  animation: card-enter 360ms cubic-bezier(.2, .8, .2, 1) forwards;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.candidate-card:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 10%);
+}
+
+.candidate-card[aria-pressed="true"] {
+  animation: selection-pop 280ms cubic-bezier(.2, .8, .2, 1) both;
+  box-shadow: 0 0 0 2px rgb(15 118 110 / 18%);
+}
+
+.candidate-avatar img {
+  transition: transform 240ms ease;
+}
+
+.candidate-card:not(:disabled):hover .candidate-avatar img {
+  transform: scale(1.05);
+}
+
+.review-card {
+  animation: card-enter 300ms ease both;
+}
+
+@keyframes step-enter {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes selection-pop {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  55% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @keyframes receipt-print {
   from {
     max-height: 0;
@@ -162,6 +241,10 @@ select {
     max-width: 100%;
     box-shadow: none;
     animation: none;
+  }
+
+  .candidate-avatar {
+    print-color-adjust: exact;
   }
 
   .receipt-cutter {
