@@ -5,6 +5,9 @@ import { officialSources, privacyPrinciples } from "@/lib/project";
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
+      <a className="skip-link" href="#fluxo">
+        Ir para a seleção de candidatos
+      </a>
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-5 border-b border-slate-200 pb-6">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-teal-700/25 bg-white px-3 py-1 text-sm font-medium text-teal-900">
@@ -18,14 +21,14 @@ export default function Home() {
                 Cola Eleitoral 2026
               </h1>
               <p className="mt-4 text-base leading-7 text-slate-700 sm:text-lg">
-                Monte uma cola eleitoral pessoal com dados oficiais do TSE, sem voto online, sem recomendacao politica e sem registrar escolhas em backend ou analytics.
+                Monte uma cola eleitoral pessoal com dados oficiais do TSE, sem voto online, sem recomendação política e sem registrar escolhas em backend ou analytics.
               </p>
             </div>
             <a
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
               href="#fluxo"
             >
-              Comecar
+              Começar
             </a>
           </div>
         </header>
@@ -34,7 +37,7 @@ export default function Home() {
 
         <section aria-labelledby="principios" className="grid gap-3 sm:grid-cols-3">
           <h2 id="principios" className="sr-only">
-            Principios do produto
+            Princípios do produto
           </h2>
           {privacyPrinciples.map((principle) => (
             <article key={principle} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -49,7 +52,7 @@ export default function Home() {
             Fontes oficiais
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-700">
-            A integracao de candidatos deve documentar a origem e mostrar a data de ultima atualizacao disponivel.
+            Os candidatos são exibidos de forma neutra, sem recomendação ou ranqueamento. A origem e a data da última atualização ficam visíveis.
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-3">
             {officialSources.map((source) => (
@@ -70,7 +73,7 @@ export default function Home() {
         </aside>
 
         <footer className="border-t border-slate-200 py-5 text-sm leading-6 text-slate-600">
-          Este projeto e independente, nao possui vinculo oficial com a Justica Eleitoral e nao emite comprovante de voto.
+          Este projeto é independente, não possui vínculo oficial com a Justiça Eleitoral e não emite comprovante de voto.
         </footer>
       </section>
     </main>

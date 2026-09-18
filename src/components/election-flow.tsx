@@ -2,7 +2,7 @@
 
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, MapPin, Pencil, ReceiptText, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
 import { electionFlow, type ElectionStepId } from "@/lib/project";
 import { searchCandidatesFromLocalMirror } from "@/lib/tse/client";
@@ -77,6 +77,7 @@ function readPersistedState(): PersistedElectionState | null {
 }
 
 export function ElectionFlow() {
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const [uf, setUf] = useState<BrazilianStateCode | "">("");
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -102,6 +103,12 @@ export function ElectionFlow() {
   const canGoBack = currentIndex > 0;
   const canGoForward = currentIndex < electionFlow.length - 1;
   const isLastStep = currentIndex === electionFlow.length - 1;
+
+  useEffect(() => {
+    if (started && !reviewing && !finalized) {
+      stepHeadingRef.current?.focus();
+    }
+  }, [currentIndex, finalized, reviewing, started]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -286,7 +293,7 @@ export function ElectionFlow() {
               <div className="text-center">
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Cola Eleitoral 2026</p>
                 <h2 className="mt-1 text-xl font-black tracking-normal text-slate-950">{uf}</h2>
-                <p className="mt-1 text-xs text-slate-600">Sem validade oficial. Nao e comprovante de voto.</p>
+                <p className="mt-1 text-xs text-slate-600">Sem validade oficial. Não é comprovante de voto.</p>
               </div>
               <div className="my-4 border-t border-dashed border-slate-400" />
               <ol className="grid gap-3">
@@ -305,7 +312,7 @@ export function ElectionFlow() {
               </ol>
               <div className="my-4 border-t border-dashed border-slate-400" />
               <p className="text-xs leading-5 text-slate-600">
-                Fonte: dados oficiais do TSE. Atualizacao: {formatUpdatedAt(sourceUpdatedAt)}. Escolhas mantidas no dispositivo.
+                Fonte: dados oficiais do TSE. Atualização: {formatUpdatedAt(sourceUpdatedAt)}. Escolhas mantidas no dispositivo.
               </p>
             </article>
           </div>
@@ -320,7 +327,7 @@ export function ElectionFlow() {
               Monte sua cola por UF e cargo
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-700">
-              Pesquise candidatos oficiais por nome, numero ou partido. Suas escolhas ficam apenas nesta sessao do navegador.
+              Pesquise candidatos oficiais por nome, número ou partido. Suas escolhas ficam apenas neste navegador.
             </p>
           </div>
         </div>
@@ -370,7 +377,7 @@ export function ElectionFlow() {
 
         {!started ? (
           <div className="mt-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="status">
-            Selecione a UF para liberar as etapas de cargos. Nenhuma escolha politica sera enviada para analytics.
+            Selecione a UF para liberar as etapas de cargos. Nenhuma escolha política será enviada para analytics.
           </div>
         ) : reviewing ? (
           <section className="mt-6 grid gap-5" aria-labelledby="review-title">
@@ -436,7 +443,14 @@ export function ElectionFlow() {
           </section>
         ) : (
           <div className="mt-6 grid gap-5">
-            <div aria-label={`Progresso: ${progress}%`} className="grid gap-2" role="group">
+            <div
+              aria-label={`Etapa ${currentIndex + 1} de ${electionFlow.length}`}
+              aria-valuemax={electionFlow.length}
+              aria-valuemin={1}
+              aria-valuenow={currentIndex + 1}
+              className="grid gap-2"
+              role="progressbar"
+            >
               <div className="flex items-center justify-between text-sm font-medium text-slate-700">
                 <span>
                   Etapa {currentIndex + 1} de {electionFlow.length}
@@ -450,10 +464,16 @@ export function ElectionFlow() {
 
             <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-semibold uppercase text-slate-600">{currentOffice === "presidente" ? "BR" : uf}</p>
-              <h3 className="mt-2 text-2xl font-bold tracking-normal text-slate-950">{currentStep.label}</h3>
+              <h3
+                className="mt-2 text-2xl font-bold tracking-normal text-slate-950 outline-none"
+                ref={stepHeadingRef}
+                tabIndex={-1}
+              >
+                {currentStep.label}
+              </h3>
               <p className="mt-2 text-sm leading-6 text-slate-700">{currentStep.helper}</p>
               <p className="mt-4 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-700">
-                Selecao atual: {selectedCandidate ? `${selectedCandidate.number} - ${selectedCandidate.ballotName}` : "pendente"}
+                Seleção atual: {selectedCandidate ? `${selectedCandidate.number} - ${selectedCandidate.ballotName}` : "pendente"}
               </p>
             </article>
 
@@ -465,7 +485,7 @@ export function ElectionFlow() {
                   className="min-h-12 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-base text-slate-950 shadow-sm"
                   id="candidate-search"
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Nome, numero ou partido"
+                  placeholder="Nome, número ou partido"
                   type="search"
                   value={query}
                 />
@@ -478,7 +498,7 @@ export function ElectionFlow() {
               </div>
             ) : null}
 
-            <div className="grid gap-3" aria-busy={isLoading}>
+            <div aria-busy={isLoading} aria-label="Resultados da busca" className="grid gap-3" role="region">
               {isLoading ? (
                 <div className="flex min-h-24 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white text-sm font-semibold text-slate-700">
                   <Loader2 aria-hidden="true" className="size-4 animate-spin" />
@@ -530,6 +550,12 @@ export function ElectionFlow() {
                           Já escolhido para a outra vaga ao Senado
                         </span>
                       ) : null}
+                      {isSelected ? (
+                        <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-teal-800">
+                          <CheckCircle2 aria-hidden="true" className="size-4" />
+                          Selecionado
+                        </span>
+                      ) : null}
                     </span>
                     <strong className="font-mono text-2xl text-slate-950">{candidate.number}</strong>
                   </button>
@@ -569,7 +595,7 @@ export function ElectionFlow() {
                   }}
                   type="button"
                 >
-                  Avancar
+                  Avançar
                   <ChevronRight aria-hidden="true" className="size-4" />
                 </button>
               )}
