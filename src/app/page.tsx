@@ -1,5 +1,10 @@
 import { ShieldCheck, Vote } from "lucide-react";
+import Link from "next/link";
+import { AdSlot } from "@/components/ad-slot";
 import { ElectionFlow } from "@/components/election-flow";
+
+const adsenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
+const adsenseContentSlot = process.env.NEXT_PUBLIC_ADSENSE_SLOT_CONTENT;
 
 export default function Home() {
   return (
@@ -26,8 +31,13 @@ export default function Home() {
 
         <ElectionFlow />
 
+        <AdSlot clientId={adsenseClientId} slotId={adsenseContentSlot} />
+
         <footer className="px-4 py-6 text-center text-xs leading-5 text-slate-500">
-          Projeto independente, sem vínculo com a Justiça Eleitoral. Não é comprovante de voto.
+          <p>Projeto independente, sem vínculo com a Justiça Eleitoral. Não é comprovante de voto.</p>
+          <Link className="mt-2 inline-block font-bold text-slate-700 underline-offset-4 hover:underline" href="/privacidade">
+            Privacidade e anúncios
+          </Link>
         </footer>
       </div>
     </main>
