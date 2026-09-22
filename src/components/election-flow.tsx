@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, MapPin, Pencil, Printer, ReceiptText, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, MapPin, Pencil, Printer, ReceiptText, Search, Sparkles, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
@@ -134,6 +134,7 @@ export function ElectionFlow() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [finalized, setFinalized] = useState(false);
+  const [issuing, setIssuing] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const currentStep = electionFlow[currentIndex];
@@ -357,7 +358,12 @@ export function ElectionFlow() {
     }
 
     setReviewing(false);
-    setFinalized(true);
+    setIssuing(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.setTimeout(() => {
+      setIssuing(false);
+      setFinalized(true);
+    }, 950);
   }
 
   async function exportReceiptAsImage() {
@@ -456,8 +462,20 @@ export function ElectionFlow() {
   }
 
   return (
-    <section id="fluxo" aria-labelledby="fluxo-title" className="grid gap-5 lg:grid-cols-[1fr_360px]">
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section id="fluxo" aria-labelledby="fluxo-title">
+      <div className="app-card overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-[0_18px_60px_rgba(15,23,42,.08)] sm:p-5">
+        {issuing ? (
+          <div className="issuing-stage" aria-live="assertive" role="status">
+            <div className="issuing-printer">
+              <span className="issuing-slot" />
+              <span className="issuing-sheet">
+                <Sparkles aria-hidden="true" className="size-5" />
+              </span>
+            </div>
+            <p className="mt-6 text-lg font-black tracking-[-0.02em] text-slate-950">Emitindo sua colinha…</p>
+            <p className="mt-1 text-sm text-slate-500">Organizando números e candidatos</p>
+          </div>
+        ) : null}
         {finalized ? (
           <div className="receipt-stage mb-6" aria-live="polite">
             <div className="receipt-cutter">corte aqui</div>
@@ -518,21 +536,21 @@ export function ElectionFlow() {
           </div>
         ) : null}
 
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-teal-700 text-white">
+        {!issuing ? <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white">
             <MapPin aria-hidden="true" className="size-5" />
           </span>
           <div>
-            <h2 id="fluxo-title" className="text-2xl font-bold tracking-normal text-slate-950">
-              Monte sua cola por UF e cargo
+            <h2 id="fluxo-title" className="text-xl font-black tracking-[-0.03em] text-slate-950">
+              Seus candidatos
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-700">
-              Pesquise candidatos oficiais por nome, número ou partido. Suas escolhas ficam apenas neste navegador.
+              Escolha sua UF e preencha na ordem da urna.
             </p>
           </div>
-        </div>
+        </div> : null}
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+        {!issuing ? <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
           <label className="grid gap-2 text-sm font-semibold text-slate-900" htmlFor="uf">
             UF do eleitor
             <select
@@ -551,7 +569,7 @@ export function ElectionFlow() {
           </label>
 
           <button
-            className="min-h-12 rounded-md bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+            className="min-h-12 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             disabled={!canStart}
             onClick={() => setStarted(true)}
             type="button"
@@ -559,7 +577,7 @@ export function ElectionFlow() {
             Iniciar fluxo
           </button>
           <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:border-rose-500 hover:text-rose-800 disabled:cursor-not-allowed disabled:text-slate-400"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:text-slate-300 sm:col-span-2"
             disabled={!uf && selectedCount === 0}
             onClick={clearSavedProgress}
             type="button"
@@ -567,19 +585,19 @@ export function ElectionFlow() {
             <Trash2 aria-hidden="true" className="size-4" />
             Limpar escolhas
           </button>
-        </div>
+        </div> : null}
 
-        {storageReady && (uf || selectedCount > 0) ? (
+        {!issuing && storageReady && (uf || selectedCount > 0) ? (
           <p className="mt-3 text-xs font-medium text-slate-600" role="status">
             Progresso salvo somente neste navegador.
           </p>
         ) : null}
 
-        {!started ? (
+        {!issuing && !started ? (
           <div className="mt-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="status">
             Selecione a UF para liberar as etapas de cargos. Nenhuma escolha política será enviada para analytics.
           </div>
-        ) : reviewing ? (
+        ) : !issuing && reviewing ? (
           <section className="mt-6 grid gap-5" aria-labelledby="review-title">
             <div>
               <p className="text-sm font-bold uppercase tracking-wide text-teal-800">Revisão</p>
@@ -646,7 +664,7 @@ export function ElectionFlow() {
               </button>
             </div>
           </section>
-        ) : (
+        ) : !issuing && started ? (
           <div className="step-panel mt-6 grid gap-5" key={currentStep.id}>
             <div
               aria-label={`Etapa ${currentIndex + 1} de ${electionFlow.length}`}
@@ -794,45 +812,8 @@ export function ElectionFlow() {
               )}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
-
-      <aside aria-labelledby="ordem-title" className="hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:block">
-        <h2 id="ordem-title" className="text-lg font-bold text-slate-950">
-          Ordem dos cargos
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">{selectedCount} de {electionFlow.length} cargos selecionados</p>
-        <ol className="mt-4 grid gap-2">
-          {electionFlow.map((step, index) => {
-            const isCurrent = started && index === currentIndex;
-            const candidate = selections[step.id];
-            return (
-              <li key={step.id}>
-                <button
-                  aria-current={isCurrent ? "step" : undefined}
-                  className="flex w-full items-center gap-3 rounded-md border border-slate-200 bg-white p-3 text-left text-sm transition hover:border-teal-700 disabled:cursor-not-allowed disabled:opacity-60 aria-[current=step]:border-teal-700 aria-[current=step]:bg-teal-50"
-                  disabled={!started}
-                  onClick={() => {
-                    setCurrentIndex(index);
-                    setQuery("");
-                  }}
-                  type="button"
-                >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                    {index + 1}
-                  </span>
-                  <span className="grid gap-1">
-                    <span className="font-semibold text-slate-950">{step.label}</span>
-                    <span className="text-xs font-medium text-slate-600">
-                      {candidate ? `${candidate.number} - ${candidate.ballotName}` : isCurrent ? "Etapa atual" : "Pendente"}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </aside>
     </section>
   );
 }

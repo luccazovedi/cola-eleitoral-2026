@@ -2,7 +2,7 @@
 
 :root {
   color-scheme: light;
-  --background: #f8fafc;
+  --background: #f3f5f7;
   --foreground: #111827;
   --muted: #64748b;
   --border: #d7dee8;
@@ -26,7 +26,32 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 50% -15%, rgb(16 185 129 / 10%), transparent 34rem),
+    var(--background);
+}
+
+.app-header {
+  border: 1px solid rgb(226 232 240 / 85%);
+  background: rgb(255 255 255 / 82%);
+  box-shadow: 0 8px 32px rgb(15 23 42 / 5%);
+  backdrop-filter: blur(18px);
+}
+
+.brand-mark {
+  background: #facc15;
+  color: #0f172a;
+  box-shadow: inset 0 0 0 1px rgb(15 23 42 / 8%);
+}
+
+.app-card select,
+.app-card input {
+  border-radius: 12px;
 }
 
 button,
@@ -61,9 +86,11 @@ select {
 .receipt-stage {
   position: relative;
   overflow: hidden;
-  border-radius: 8px;
-  background: linear-gradient(#111827 0 48px, #e5e7eb 48px 50px, #f8fafc 50px);
-  padding: 24px 14px 14px;
+  margin: -16px -16px 24px;
+  border-radius: 24px 24px 18px 18px;
+  background: linear-gradient(#101827 0 56px, #020617 56px 60px, #e8edf2 60px);
+  padding: 28px 14px 18px;
+  animation: stage-in 280ms ease-out both;
 }
 
 .receipt-cutter {
@@ -89,7 +116,7 @@ select {
   padding: 20px 18px;
   box-shadow: 0 18px 35px rgb(15 23 42 / 18%);
   transform-origin: top center;
-  animation: receipt-print 1200ms cubic-bezier(.2, .8, .2, 1) both, receipt-cut 260ms ease-in 1250ms both;
+  animation: receipt-print 1050ms cubic-bezier(.16, 1, .3, 1) both, receipt-settle 360ms cubic-bezier(.34, 1.56, .64, 1) 1080ms both;
 }
 
 .receipt-paper::after {
@@ -115,6 +142,53 @@ select {
   opacity: 0;
   animation: card-enter 360ms cubic-bezier(.2, .8, .2, 1) forwards;
   transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.issuing-stage {
+  display: grid;
+  min-height: 430px;
+  place-content: center;
+  justify-items: center;
+  margin: -16px;
+  padding: 48px 24px;
+  text-align: center;
+  background: linear-gradient(180deg, #f8fafc, #eef2f6);
+  animation: stage-in 220ms ease-out both;
+}
+
+.issuing-printer {
+  position: relative;
+  width: 150px;
+  height: 104px;
+  border-radius: 26px;
+  background: #0f172a;
+  box-shadow: 0 24px 45px rgb(15 23 42 / 24%);
+  animation: printer-pulse 900ms ease-in-out infinite;
+}
+
+.issuing-slot {
+  position: absolute;
+  top: 25px;
+  left: 22px;
+  width: 106px;
+  height: 8px;
+  border-radius: 999px;
+  background: #020617;
+}
+
+.issuing-sheet {
+  position: absolute;
+  top: 31px;
+  left: 31px;
+  display: grid;
+  width: 88px;
+  height: 92px;
+  place-items: center;
+  border-radius: 3px 3px 10px 10px;
+  background: #fff;
+  color: #10b981;
+  box-shadow: 0 12px 22px rgb(15 23 42 / 18%);
+  animation: sheet-feed 900ms cubic-bezier(.2, .8, .2, 1) infinite;
 }
 
 .candidate-card:not(:disabled):hover {
@@ -198,6 +272,26 @@ select {
   }
 }
 
+@keyframes stage-in {
+  from { opacity: 0; transform: scale(.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes printer-pulse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+
+@keyframes sheet-feed {
+  from { clip-path: inset(0 0 88%); transform: translateY(-24px); opacity: .5; }
+  to { clip-path: inset(0); transform: translateY(0); opacity: 1; }
+}
+
+@keyframes receipt-settle {
+  from { transform: translateY(-4px) rotate(-.35deg); }
+  to { transform: translateY(0) rotate(0); }
+}
+
 @keyframes receipt-cut {
   from {
     clip-path: inset(0 0 0 0);
@@ -264,5 +358,12 @@ select {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (min-width: 700px) {
+  .phone-layout {
+    padding-top: 32px;
+    padding-bottom: 48px;
   }
 }
