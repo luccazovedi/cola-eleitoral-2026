@@ -8,9 +8,9 @@ export default function Home() {
         Ir para a seleção de candidatos
       </a>
       <div className="phone-layout mx-auto w-full max-w-[520px] px-3 pb-8 pt-3 sm:px-5 sm:pt-5">
-        <header className="app-header mb-3 flex items-center justify-between rounded-[22px] px-4 py-3">
+        <header className="app-header mb-3 flex items-center justify-between px-2 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="brand-mark flex size-10 shrink-0 items-center justify-center rounded-xl">
+            <span className="brand-mark flex size-10 shrink-0 items-center justify-center rounded-lg">
               <Vote aria-hidden="true" className="size-5" />
             </span>
             <div className="min-w-0">

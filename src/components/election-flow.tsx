@@ -135,6 +135,7 @@ export function ElectionFlow() {
   const [reviewing, setReviewing] = useState(false);
   const [finalized, setFinalized] = useState(false);
   const [issuing, setIssuing] = useState(false);
+  const [transitionDirection, setTransitionDirection] = useState<"forward" | "back">("forward");
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const currentStep = electionFlow[currentIndex];
@@ -339,6 +340,7 @@ export function ElectionFlow() {
 
   function editSelection(stepId: ElectionStepId) {
     const stepIndex = electionFlow.findIndex((step) => step.id === stepId);
+    setTransitionDirection(stepIndex < currentIndex ? "back" : "forward");
     setCurrentIndex(Math.max(stepIndex, 0));
     setQuery("");
     setReviewing(false);
@@ -463,7 +465,7 @@ export function ElectionFlow() {
 
   return (
     <section id="fluxo" aria-labelledby="fluxo-title">
-      <div className="app-card overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-[0_18px_60px_rgba(15,23,42,.08)] sm:p-5">
+      <div className="app-card overflow-hidden rounded-[14px] border border-slate-300 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,.06)] sm:p-5">
         {issuing ? (
           <div className="issuing-stage" aria-live="assertive" role="status">
             <div className="issuing-printer">
@@ -665,7 +667,7 @@ export function ElectionFlow() {
             </div>
           </section>
         ) : !issuing && started ? (
-          <div className="step-panel mt-6 grid gap-5" key={currentStep.id}>
+          <div className={`step-panel step-${transitionDirection} mt-6 grid gap-5`} key={currentStep.id}>
             <div
               aria-label={`Etapa ${currentIndex + 1} de ${electionFlow.length}`}
               aria-valuemax={electionFlow.length}
@@ -680,8 +682,13 @@ export function ElectionFlow() {
                 </span>
                 <span>{progress}%</span>
               </div>
-              <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-                <div className="progress-fill h-full rounded-full bg-teal-700" style={{ width: `${progress}%` }} />
+              <div className="step-track grid grid-cols-6 gap-1" aria-hidden="true">
+                {electionFlow.map((step, index) => (
+                  <span
+                    className={index <= currentIndex ? "step-segment step-segment-active" : "step-segment"}
+                    key={step.id}
+                  />
+                ))}
               </div>
             </div>
 
@@ -774,11 +781,12 @@ export function ElectionFlow() {
               })}
             </div>
 
-            <div className="mobile-actions sticky bottom-2 z-10 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-lg backdrop-blur sm:static sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+            <div className="mobile-actions sticky bottom-2 z-10 grid grid-cols-[.82fr_1.18fr] gap-2 border border-slate-300 bg-white p-2 shadow-[0_12px_35px_rgba(15,23,42,.18)] sm:static sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
               <button
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition enabled:hover:border-slate-500 disabled:cursor-not-allowed disabled:text-slate-400"
+                className="nav-button nav-button-back inline-flex min-h-14 items-center justify-center gap-2 border-2 border-slate-900 bg-white px-3 py-3 text-sm font-black text-slate-950 transition disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                 disabled={!canGoBack}
                 onClick={() => {
+                  setTransitionDirection("back");
                   setCurrentIndex((index) => Math.max(index - 1, 0));
                   setQuery("");
                 }}
@@ -789,24 +797,25 @@ export function ElectionFlow() {
               </button>
               {isLastStep ? (
                 <button
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800"
+                  className="nav-button nav-button-next inline-flex min-h-14 items-center justify-center gap-2 bg-yellow-400 px-3 py-3 text-sm font-black text-slate-950 transition hover:bg-yellow-300"
                   onClick={() => setReviewing(true)}
                   type="button"
                 >
                   <ReceiptText aria-hidden="true" className="size-4" />
-                  Revisar escolhas
+                  Revisar cola
                 </button>
               ) : (
                 <button
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition enabled:hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                  className="nav-button nav-button-next inline-flex min-h-14 items-center justify-center gap-2 bg-slate-950 px-3 py-3 text-sm font-black text-white transition enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                   disabled={!canGoForward}
-                  onClick={() => {
-                    setCurrentIndex((index) => Math.min(index + 1, electionFlow.length - 1));
+                onClick={() => {
+                  setTransitionDirection("forward");
+                  setCurrentIndex((index) => Math.min(index + 1, electionFlow.length - 1));
                     setQuery("");
                   }}
                   type="button"
                 >
-                  Avançar
+                  Próxima etapa
                   <ChevronRight aria-hidden="true" className="size-4" />
                 </button>
               )}
