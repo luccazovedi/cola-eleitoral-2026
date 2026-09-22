@@ -7,6 +7,7 @@ import { brazilianStates, type BrazilianStateCode } from "@/lib/brazil";
 import { electionFlow, type ElectionStepId } from "@/lib/project";
 import { searchCandidatesFromLocalMirror } from "@/lib/tse/client";
 import { loadCandidatePhotoUrls } from "@/lib/tse/photos";
+import { trackEvent } from "@/lib/analytics";
 import type { Candidate, CandidateOffice, CandidateSearchResult } from "@/types/candidate";
 
 type SelectionState = Record<ElectionStepId, Candidate | null>;
@@ -310,6 +311,12 @@ export function ElectionFlow() {
       ...current,
       [currentStep.id]: candidate,
     }));
+    trackEvent("candidate_select", { step_number: currentIndex + 1, step_id: currentStep.id });
+  }
+
+  function startFlow() {
+    setStarted(true);
+    trackEvent("flow_start", { step_count: electionFlow.length });
   }
 
   function resetFlow(nextUf: BrazilianStateCode | "") {
@@ -361,6 +368,7 @@ export function ElectionFlow() {
 
     setReviewing(false);
     setIssuing(true);
+    trackEvent("cola_complete", { selected_count: selectedCount, missing_count: missingCount });
     window.scrollTo({ top: 0, behavior: "smooth" });
     window.setTimeout(() => {
       setIssuing(false);
@@ -457,6 +465,7 @@ export function ElectionFlow() {
         link.click();
         URL.revokeObjectURL(url);
         setExportMessage("Imagem salva no dispositivo.");
+        trackEvent("export_receipt", { method: "image" });
       }, "image/png");
     } catch {
       setExportMessage("A exportação como imagem não é suportada neste navegador.");
@@ -515,7 +524,10 @@ export function ElectionFlow() {
             <div className="no-print mx-auto mt-4 grid w-full max-w-[340px] grid-cols-2 gap-3">
               <button
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-white px-3 py-3 text-sm font-bold text-slate-950 shadow-sm hover:bg-slate-100"
-                onClick={() => window.print()}
+                onClick={() => {
+                  trackEvent("export_receipt", { method: "print" });
+                  window.print();
+                }}
                 type="button"
               >
                 <Printer aria-hidden="true" className="size-4" />
@@ -573,7 +585,7 @@ export function ElectionFlow() {
           <button
             className="min-h-12 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition enabled:hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
             disabled={!canStart}
-            onClick={() => setStarted(true)}
+            onClick={startFlow}
             type="button"
           >
             Iniciar fluxo
@@ -667,7 +679,7 @@ export function ElectionFlow() {
             </div>
           </section>
         ) : !issuing && started ? (
-          <div className={`step-panel step-${transitionDirection} mt-6 grid gap-5`} key={currentStep.id}>
+          <div className={`step-panel step-${transitionDirection} mt-6 grid gap-5 pb-24 sm:pb-0`} key={currentStep.id}>
             <div
               aria-label={`Etapa ${currentIndex + 1} de ${electionFlow.length}`}
               aria-valuemax={electionFlow.length}
@@ -781,12 +793,13 @@ export function ElectionFlow() {
               })}
             </div>
 
-            <div className="mobile-actions sticky bottom-2 z-10 grid grid-cols-[.82fr_1.18fr] gap-2 border border-slate-300 bg-white p-2 shadow-[0_12px_35px_rgba(15,23,42,.18)] sm:static sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+            <div className="mobile-actions fixed inset-x-3 bottom-3 z-40 mx-auto grid max-w-[496px] grid-cols-[.82fr_1.18fr] gap-2 border border-slate-300 bg-white p-2 shadow-[0_12px_35px_rgba(15,23,42,.18)] sm:static sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
               <button
                 className="nav-button nav-button-back inline-flex min-h-14 items-center justify-center gap-2 border-2 border-slate-900 bg-white px-3 py-3 text-sm font-black text-slate-950 transition disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                 disabled={!canGoBack}
                 onClick={() => {
                   setTransitionDirection("back");
+                  trackEvent("flow_step_view", { step_number: currentIndex, direction: "back" });
                   setCurrentIndex((index) => Math.max(index - 1, 0));
                   setQuery("");
                 }}
@@ -798,7 +811,10 @@ export function ElectionFlow() {
               {isLastStep ? (
                 <button
                   className="nav-button nav-button-next inline-flex min-h-14 items-center justify-center gap-2 bg-yellow-400 px-3 py-3 text-sm font-black text-slate-950 transition hover:bg-yellow-300"
-                  onClick={() => setReviewing(true)}
+                  onClick={() => {
+                    setReviewing(true);
+                    trackEvent("flow_review", { selected_count: selectedCount });
+                  }}
                   type="button"
                 >
                   <ReceiptText aria-hidden="true" className="size-4" />
@@ -810,6 +826,7 @@ export function ElectionFlow() {
                   disabled={!canGoForward}
                 onClick={() => {
                   setTransitionDirection("forward");
+                  trackEvent("flow_step_view", { step_number: currentIndex + 2, direction: "forward" });
                   setCurrentIndex((index) => Math.min(index + 1, electionFlow.length - 1));
                     setQuery("");
                   }}

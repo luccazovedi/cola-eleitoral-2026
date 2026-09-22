@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnalyticsPreferenceButton } from "@/components/analytics-consent";
 
 export const metadata = {
   title: "Privacidade e anúncios | Cola Eleitoral 2026",
@@ -25,6 +26,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-black text-slate-950">Controle</h2>
             <p className="mt-1">Você pode bloquear ou apagar cookies nas configurações do navegador. Quando exigido para sua região, as opções de consentimento são apresentadas antes da publicidade personalizada.</p>
+            <div className="mt-3"><AnalyticsPreferenceButton /></div>
           </section>
         </div>
       </article>
